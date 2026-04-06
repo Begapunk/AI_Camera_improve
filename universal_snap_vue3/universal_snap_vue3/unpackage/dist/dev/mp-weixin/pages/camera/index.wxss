@@ -1,0 +1,161 @@
+
+.container.data-v-3913aa5f { width: 100vw; height: 100vh; background: #000; display: flex; flex-direction: column; overflow: hidden;
+}
+.camera-view.data-v-3913aa5f { flex: 1; width: 100%; position: relative;
+}
+.hud-panel.data-v-3913aa5f {
+  position: absolute;
+  top: 40rpx;
+  left: 40rpx;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 15rpx 25rpx;
+  border-radius: 12rpx;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  pointer-events: none;
+  z-index: 20;
+}
+.hud-text.data-v-3913aa5f {
+  color: #00ffcc;
+  font-size: 22rpx;
+  font-family: monospace;
+}
+.grid-v.data-v-3913aa5f { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.4);
+}
+.grid-h.data-v-3913aa5f { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.4);
+}
+.v1.data-v-3913aa5f { left: 33.33%;
+}
+.v2.data-v-3913aa5f { left: 66.66%;
+}
+.h1.data-v-3913aa5f { top: 33.33%;
+}
+.h2.data-v-3913aa5f { top: 66.66%;
+}
+.ai-bubble-wrap.data-v-3913aa5f { position: absolute; bottom: 40rpx; left: 0; right: 0; display: flex; justify-content: center; padding: 0 40rpx; pointer-events: none;
+}
+.ai-bubble.data-v-3913aa5f { 
+  background: rgba(0,0,0,0.7); 
+  border: 1px solid #00ffcc; 
+  border-radius: 20rpx; 
+  padding: 20rpx 30rpx; 
+  display: flex; 
+  flex-direction: column; 
+  width: auto; 
+  max-width: 90%; 
+  transition: all 0.3s;
+}
+.ai-text.data-v-3913aa5f { 
+  color: #00ffcc; 
+  font-size: 28rpx; 
+  line-height: 1.5; 
+  white-space: pre-wrap; 
+  word-break: break-all; 
+  transition: all 0.3s;
+}
+.perfect-border.data-v-3913aa5f {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  border: 10rpx solid #39FF14; box-sizing: border-box;
+  box-shadow: inset 0 0 50rpx rgba(57, 255, 20, 0.5);
+  pointer-events: none; z-index: 10;
+}
+.perfect-bubble.data-v-3913aa5f { background: rgba(57, 255, 20, 0.2); border-color: #39FF14; transform: scale(1.05);
+}
+.perfect-text.data-v-3913aa5f { color: #39FF14; font-weight: bold;
+}
+.template-box.data-v-3913aa5f { position: absolute; top: 15%; left: 10%; width: 80%; height: 60%; border: 1px dashed #fff; pointer-events: none; display: flex; justify-content: center;
+}
+.template-box.portrait.data-v-3913aa5f { border-radius: 50%; border-color: #ff69b4; height: 50%; top: 10%;
+}
+.template-box.food.data-v-3913aa5f { border-color: #ffa500; height: 40%; top: 30%;
+}
+.template-box.scenery.data-v-3913aa5f { border-left: none; border-right: none; width: 100%; left: 0; top: 35%; height: 30%;
+}
+.template-text.data-v-3913aa5f { margin-top: -40rpx; color: #fff; background: rgba(0,0,0,0.5); font-size: 22rpx; padding: 4rpx 10rpx; border-radius: 4rpx;
+}
+.footer.data-v-3913aa5f { height: 380rpx; background: #000; display: flex; flex-direction: column; justify-content: flex-start; padding-bottom: 20rpx;
+}
+.mode-selector.data-v-3913aa5f { display: flex; justify-content: center; gap: 30rpx; padding: 20rpx 0;
+}
+.mode-item.data-v-3913aa5f { color: #888; font-size: 26rpx; transition: all 0.2s; padding: 10rpx 20rpx; border-radius: 30rpx;}
+.mode-item.active.data-v-3913aa5f { color: #000; background: #FFD700; font-weight: bold; transform: scale(1.1);
+}
+.tools-scroll.data-v-3913aa5f { width: 100%; height: 120rpx; white-space: nowrap; margin-bottom: 10rpx;
+}
+.tools-inner.data-v-3913aa5f { display: inline-flex; padding: 0 30rpx; gap: 40rpx; align-items: center; height: 100%;
+}
+.btn.data-v-3913aa5f { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-width: 100rpx;
+}
+.emoji.data-v-3913aa5f { font-size: 40rpx;
+}
+.desc.data-v-3913aa5f { color: #ccc; font-size: 20rpx; margin-top: 8rpx;
+}
+.shutter-zone.data-v-3913aa5f { display: flex; justify-content: center; align-items: center; flex: 1;
+}
+.shutter-outer.data-v-3913aa5f { width: 130rpx; height: 130rpx; border: 6rpx solid #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+.shutter-inner.data-v-3913aa5f { width: 105rpx; height: 105rpx; background: #fff; border-radius: 50%;
+}
+.panel-mask.data-v-3913aa5f { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99; display: flex; align-items: flex-end;
+}
+.panel.data-v-3913aa5f { width: 100%; background: #1a1a1a; padding: 40rpx; border-radius: 30rpx 30rpx 0 0;
+}
+.panel-header.data-v-3913aa5f { color: #888; font-size: 24rpx; margin-bottom: 20rpx;
+}
+.grid-row.data-v-3913aa5f { display: flex; gap: 20rpx; margin-bottom: 40rpx;
+}
+.tag.data-v-3913aa5f { background: #333; color: #fff; padding: 10rpx 30rpx; border-radius: 30rpx; font-size: 24rpx;
+}
+.tag.active.data-v-3913aa5f { background: #007AFF;
+}
+.template-list.data-v-3913aa5f { display: flex; flex-wrap: wrap; gap: 20rpx;
+}
+.t-item.data-v-3913aa5f { background: #333; color: #fff; padding: 20rpx 30rpx; border-radius: 10rpx; font-size: 24rpx;
+}
+.t-item.clear.data-v-3913aa5f { color: #ff4d4f;
+}
+.t-item.custom.data-v-3913aa5f { background: #007AFF;
+}
+.custom-sketch-overlay.data-v-3913aa5f { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.6; pointer-events: none;
+}
+.level-container.data-v-3913aa5f {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200rpx;
+  height: 200rpx;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.crosshair-v.data-v-3913aa5f {
+  position: absolute;
+  width: 1px;
+  height: 40rpx;
+  background: rgba(255, 255, 255, 0.5);
+}
+.crosshair-h.data-v-3913aa5f {
+  position: absolute;
+  width: 40rpx;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.5);
+}
+.dynamic-line.data-v-3913aa5f {
+  position: absolute;
+  width: 240rpx;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.8);
+  transition: transform 0.05s linear, background-color 0.2s ease, opacity 0.2s ease;
+}
+.line-leveled.data-v-3913aa5f {
+  background: #FFD700;
+  height: 3px;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+}
+.line-flat.data-v-3913aa5f {
+  opacity: 0.2;
+}

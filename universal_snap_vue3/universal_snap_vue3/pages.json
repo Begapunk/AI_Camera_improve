@@ -1,0 +1,78 @@
+{
+  "easycom": {
+    /* ↓ 自动按组件 name 解析路径 - 让 <uni-icons> 等 uni-ui 组件直接可用 */
+    "^uni-(.*)": "@dcloudio/uni-ui/lib/uni-$1/uni-$1.vue"
+  },
+
+  "pages": [
+    {
+      "path": "pages/login/index",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/login/register",
+      "style": {
+        "navigationBarTitleText": "注册"
+      }
+    },
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationBarTitleText": "主页"
+      }
+    },
+    {
+      "path": "pages/camera/index",
+      "style": {
+        "navigationBarTitleText": "智能拍摄助手",
+        "navigationBarBackgroundColor": "#000000",
+        "navigationBarTextStyle": "white",
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/analyze/index",
+      "style": {
+        "navigationBarTitleText": "自拍建议"
+      }
+    },
+    {
+      "path": "pages/environment/index",
+      "style": {
+        "navigationBarTitleText": "环境分析"
+      }
+    },
+    {
+      "path": "pages/template/index",
+      "style": {
+        "navigationBarTitleText": "模板分析评分"
+      }
+    },
+    {
+      "path": "pages/template/templateCollection",
+      "style": {
+        "navigationBarTitleText": "模板合集"
+      }
+    },
+    {
+      "path": "pages/ar/index",
+      "style": {
+        "navigationBarTitleText": "AR 测距",
+        "navigationBarBackgroundColor": "#000000",
+        "navigationBarTextStyle": "white",
+        "disableScroll": true
+      }
+    }
+  ],
+
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "CZCamera",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  },
+
+  "uniIdRouter": {}
+}

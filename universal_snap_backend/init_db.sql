@@ -1,0 +1,10 @@
+CREATE DATABASE IF NOT EXISTS snap_db DEFAULT CHARSET utf8mb4;
+USE snap_db;
+
+CREATE TABLE IF NOT EXISTS photo_analysis (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    filename VARCHAR(255),
+    advice TEXT,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
