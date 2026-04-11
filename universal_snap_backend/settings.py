@@ -1,4 +1,4 @@
-#去各个平台创建KEY,平台链接在小程序配置文档里
+#去各个平台创建KEY,平台链接在小程序配置文档里。
 # 百度语音合成
 BAIDU_APP_ID = "***BAIDU_APP_ID***"
 BAIDU_API_KEY = "***BAIDU_API_KEY***"
@@ -13,7 +13,7 @@ VOLC_IA_AK = "***VOLC_IA_AK***"
 VOLC_IA_SK = "***VOLC_IA_SK***="
 
 #grok模型配置
-GROK_API_KEY = "***GROK_API_KEY_OLD***"
+GROK_API_KEY = "***GROK_API_KEY***"
 GROK_BASE_URL = "https://api.x.ai/v1"
 
 
