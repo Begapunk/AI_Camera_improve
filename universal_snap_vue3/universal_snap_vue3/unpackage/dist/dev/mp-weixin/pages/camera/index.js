@@ -16,6 +16,10 @@ const _sfc_main = {
       isPerfect: false,
       aiRunning: false,
       aiTimer: null,
+<<<<<<< HEAD
+=======
+      // 【新增】存储 AI 绝对估算的距离，若为空则前端自己算
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       aiEstimatedDistance: null,
       grokRunning: false,
       grokTimer: null,
@@ -23,11 +27,23 @@ const _sfc_main = {
       isAnalyzing: false,
       isSpeaking: false,
       aiMessage: "",
+<<<<<<< HEAD
       isLevelEnabled: false,
       tiltAngle: 0,
       smoothedAngle: 0,
       lastRawAngle: 0,
       pitchAngle: 0,
+=======
+      // 传感器与水平仪状态
+      isLevelEnabled: false,
+      tiltAngle: 0,
+      // 左右倾角 (Roll)
+      smoothedAngle: 0,
+      lastRawAngle: 0,
+      // 【新增】前后俯仰角状态
+      pitchAngle: 0,
+      // 前后俯仰角 (Pitch)
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       smoothedPitch: 0,
       lastRawPitch: 0,
       isLeveled: false,
@@ -42,12 +58,24 @@ const _sfc_main = {
       const map = { "off": "关", "on": "开", "torch": "常亮" };
       return map[this.flashMode];
     },
+<<<<<<< HEAD
     displayRoll() {
       return Math.round(this.tiltAngle || 0);
     },
     displayPitch() {
       return Math.round(this.pitchAngle || 0);
     },
+=======
+    // 将左右倾角格式化绑定到视图
+    displayRoll() {
+      return Math.round(this.tiltAngle || 0);
+    },
+    // 将前后俯仰角格式化绑定到视图
+    displayPitch() {
+      return Math.round(this.pitchAngle || 0);
+    },
+    // 【核心黑魔法】：实时雷达三角测距 (已修复正负号 Bug)
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
     estimatedDistanceDisplay() {
       if (this.aiEstimatedDistance)
         return this.aiEstimatedDistance;
@@ -58,9 +86,13 @@ const _sfc_main = {
         return "> 10m (平视)";
       const HAND_HEIGHT = 1.4;
       const theta = p * (Math.PI / 180);
+<<<<<<< HEAD
       if (theta === 0)
         return "> 10m (平视)";
       let dist = Math.abs(HAND_HEIGHT / Math.tan(theta));
+=======
+      let dist = HAND_HEIGHT / Math.tan(theta);
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       if (dist > 15)
         return "> 15m";
       return dist.toFixed(2) + "m";
@@ -77,20 +109,26 @@ const _sfc_main = {
   },
   onHide() {
     this.stopLevelSensor();
+<<<<<<< HEAD
     if (this.aiRunning)
       this.stopAI();
     if (this.grokRunning)
       this.stopGrok();
+=======
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
   },
   onUnload() {
     this.stopAI();
     this.stopGrok();
     this.stopLevelSensor();
+<<<<<<< HEAD
     if (this.audioContext) {
       this.audioContext.stop();
       this.audioContext.destroy();
       this.audioContext = null;
     }
+=======
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
   },
   methods: {
     setSmartMode(mode) {
@@ -177,7 +215,11 @@ const _sfc_main = {
           });
         },
         fail: (err) => {
+<<<<<<< HEAD
           common_vendor.index.__f__("log", "at pages/camera/index.vue:333", "传感器启动失败", err);
+=======
+          common_vendor.index.__f__("log", "at pages/camera/index.vue:340", "传感器启动失败", err);
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
         }
       });
     },
@@ -237,10 +279,15 @@ const _sfc_main = {
       }
     },
     stopGrok() {
+<<<<<<< HEAD
       if (this.grokTimer) {
         clearInterval(this.grokTimer);
         this.grokTimer = null;
       }
+=======
+      if (this.grokTimer)
+        clearInterval(this.grokTimer);
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       this.grokRunning = false;
       if (!this.aiRunning) {
         this.aiMessage = "";
@@ -274,7 +321,11 @@ const _sfc_main = {
               if (data.advice)
                 this.aiMessage = `[Grok] ${data.advice}`;
             } catch (e) {
+<<<<<<< HEAD
               common_vendor.index.__f__("error", "at pages/camera/index.vue:428", "解析失败", e);
+=======
+              common_vendor.index.__f__("error", "at pages/camera/index.vue:432", "解析失败", e);
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
             }
           }
           this.isAnalyzing = false;
@@ -302,10 +353,15 @@ const _sfc_main = {
       }
     },
     stopAI() {
+<<<<<<< HEAD
       if (this.aiTimer) {
         clearInterval(this.aiTimer);
         this.aiTimer = null;
       }
+=======
+      if (this.aiTimer)
+        clearInterval(this.aiTimer);
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       this.aiRunning = false;
       this.isPerfect = false;
       this.aiEstimatedDistance = null;
@@ -350,7 +406,11 @@ const _sfc_main = {
                   }
                 }
               } catch (e) {
+<<<<<<< HEAD
                 common_vendor.index.__f__("error", "at pages/camera/index.vue:500", e);
+=======
+                common_vendor.index.__f__("error", "at pages/camera/index.vue:501", e);
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
               }
             }
             this.isAnalyzing = false;
@@ -364,7 +424,10 @@ const _sfc_main = {
         return;
       }
       common_vendor.index.uploadFile({
+<<<<<<< HEAD
         // 注意：如果你后端的路由严格要求带斜杠，这里可能需要改为 /smart-analyze/ 以避免 308 重定向
+=======
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
         url: `${this.serverUrl}/smart-analyze`,
         filePath,
         name: "file",
@@ -398,7 +461,11 @@ const _sfc_main = {
                 }
               }
             } catch (e) {
+<<<<<<< HEAD
               common_vendor.index.__f__("error", "at pages/camera/index.vue:550", e);
+=======
+              common_vendor.index.__f__("error", "at pages/camera/index.vue:551", e);
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
             }
           }
           this.isAnalyzing = false;
@@ -452,15 +519,22 @@ const _sfc_main = {
     toggleAudio() {
       this.isAudioEnabled = !this.isAudioEnabled;
       if (!this.isAudioEnabled && this.isSpeaking) {
+<<<<<<< HEAD
         if (this.audioContext)
           this.audioContext.stop();
+=======
+        this.audioContext.stop();
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
         this.onAudioFinished();
       }
       common_vendor.index.showToast({ title: this.isAudioEnabled ? "语音开启" : "语音关闭", icon: "none" });
     },
     playAudio(url) {
+<<<<<<< HEAD
       if (!this.audioContext)
         return;
+=======
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       this.isSpeaking = true;
       this.audioContext.src = url;
       this.audioContext.play();

@@ -2,8 +2,15 @@
   <view class="container">
     <camera v-if="isAuth" :device-position="cameraPosition" :flash="flashMode" class="camera-view" @error="onCameraError">
       
+<<<<<<< HEAD
       <cover-view v-if="isPerfect" class="perfect-border"></cover-view>
 
+=======
+      <!-- 完美构图绿框特效 (当 AI 判定完美时触发) -->
+      <cover-view v-if="isPerfect" class="perfect-border"></cover-view>
+
+      <!-- 修复与升级：HUD 实时参数面板 (同时显示左右、前后角度与雷达测距) -->
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       <cover-view class="hud-panel" v-if="smartMode || isLevelEnabled">
         <cover-view class="hud-text">↔️ 左右倾角: {{ displayRoll }}°</cover-view>
         <cover-view class="hud-text">↕️ 前后俯仰: {{ displayPitch }}°</cover-view>
@@ -158,6 +165,10 @@ export default {
       aiRunning: false,
       aiTimer: null,
       
+<<<<<<< HEAD
+=======
+      // 【新增】存储 AI 绝对估算的距离，若为空则前端自己算
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       aiEstimatedDistance: null, 
       
       grokRunning: false,
@@ -167,12 +178,23 @@ export default {
       isSpeaking: false,
       aiMessage: '',
       
+<<<<<<< HEAD
       isLevelEnabled: false, 
       tiltAngle: 0,          
       smoothedAngle: 0,      
       lastRawAngle: 0, 
 
       pitchAngle: 0,         
+=======
+      // 传感器与水平仪状态
+      isLevelEnabled: false, 
+      tiltAngle: 0,          // 左右倾角 (Roll)
+      smoothedAngle: 0,      
+      lastRawAngle: 0, 
+
+      // 【新增】前后俯仰角状态
+      pitchAngle: 0,         // 前后俯仰角 (Pitch)
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       smoothedPitch: 0,
       lastRawPitch: 0,
             
@@ -189,6 +211,7 @@ export default {
       const map = { 'off': '关', 'on': '开', 'torch': '常亮' };
       return map[this.flashMode];
     },
+<<<<<<< HEAD
     displayRoll() {
       return Math.round(this.tiltAngle || 0);
     },
@@ -213,6 +236,39 @@ export default {
       let dist = Math.abs(HAND_HEIGHT / Math.tan(theta));
       
       if (dist > 15) return "> 15m"; 
+=======
+    // 将左右倾角格式化绑定到视图
+    displayRoll() {
+      return Math.round(this.tiltAngle || 0);
+    },
+    // 将前后俯仰角格式化绑定到视图
+    displayPitch() {
+      return Math.round(this.pitchAngle || 0);
+    },
+    // 【核心黑魔法】：实时雷达三角测距 (已修复正负号 Bug)
+    estimatedDistanceDisplay() {
+      // 1. 如果 AI 大脑返回了基于主体的确切物理距离，优先用 AI 的
+      if (this.aiEstimatedDistance) return this.aiEstimatedDistance;
+      
+      // 2. 如果 AI 还没返回，或者断网了，启动前端本地三角测距引擎
+      const p = this.pitchAngle;
+      
+      // 【修复】之前正负号反了。p < 0 才是手机屏幕朝天（仰拍）
+      if (p < -2) return "仰角 (高处物体)";
+      
+      // 如果手机平视前方
+      if (p >= -2 && p <= 2) return "> 10m (平视)";
+      
+      // 【修复】p > 2 说明手机向下倾斜拍物体（如拍地板上的小猫），此时可测距！
+      // 假设成人的标准手持高度为 1.4 米
+      const HAND_HEIGHT = 1.4; 
+      // 角度转弧度
+      const theta = p * (Math.PI / 180);
+      // 利用正切定理：距离 = 高度 / tan(下倾角)
+      let dist = HAND_HEIGHT / Math.tan(theta);
+      
+      if (dist > 15) return "> 15m"; // 超过 15 米误差极大，失去意义
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       return dist.toFixed(2) + "m";
     }
   },
@@ -226,15 +282,20 @@ export default {
     }
   },
   onHide() {
+<<<<<<< HEAD
     // 【修复】切后台时关闭传感器和所有轮询定时器，防止导致微信崩溃或内存泄露
     this.stopLevelSensor();
     if (this.aiRunning) this.stopAI();
     if (this.grokRunning) this.stopGrok();
+=======
+    this.stopLevelSensor();
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
   },
   onUnload() {
     this.stopAI();
     this.stopGrok();
     this.stopLevelSensor();
+<<<<<<< HEAD
     
     // 【修复】页面卸载时彻底销毁音频上下文，释放内存
     if (this.audioContext) {
@@ -242,12 +303,18 @@ export default {
       this.audioContext.destroy();
       this.audioContext = null;
     }
+=======
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
   },
   methods: {
     setSmartMode(mode) {
       if (this.smartMode === mode) return; 
       this.smartMode = mode;
+<<<<<<< HEAD
       this.aiEstimatedDistance = null; 
+=======
+      this.aiEstimatedDistance = null; // 切换模式时清空 AI 距离，交回给前端实时测算
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       
       if (mode === '') {
         uni.showToast({ title: '自由拍摄模式', icon: 'none' });
@@ -295,15 +362,28 @@ export default {
               this.isFlat = false;
             }
 
+<<<<<<< HEAD
             let rawAngle = Math.atan2(res.x, -res.y) * (180 / Math.PI);
             let rawPitch = Math.atan2(res.z, -res.y) * (180 / Math.PI);
 
+=======
+            // 计算原有的左右倾角 (Roll)
+            let rawAngle = Math.atan2(res.x, -res.y) * (180 / Math.PI);
+            // 【新增】计算前后俯仰角 (Pitch)
+            let rawPitch = Math.atan2(res.z, -res.y) * (180 / Math.PI);
+
+            // ================= 左右倾角平滑处理 =================
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
             let delta = rawAngle - this.lastRawAngle;
             if (delta > 180) rawAngle -= 360;
             else if (delta < -180) rawAngle += 360;
             this.lastRawAngle = rawAngle;
             this.smoothedAngle = this.smoothedAngle + (rawAngle - this.smoothedAngle) * 0.08;
 
+<<<<<<< HEAD
+=======
+            // ================= 前后俯仰角平滑处理 =================
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
             let deltaPitch = rawPitch - this.lastRawPitch;
             if (deltaPitch > 180) rawPitch -= 360;
             else if (deltaPitch < -180) rawPitch += 360;
@@ -311,6 +391,10 @@ export default {
             this.smoothedPitch = this.smoothedPitch + (rawPitch - this.smoothedPitch) * 0.08;
             this.pitchAngle = this.smoothedPitch;
 
+<<<<<<< HEAD
+=======
+            // ================= 水平仪磁吸死区判定 (基于 Roll) =================
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
             const targetAngle = Math.round(this.smoothedAngle / 90) * 90;
             const diff = Math.abs(this.smoothedAngle - targetAngle);
 
@@ -391,10 +475,14 @@ export default {
       }
     },
     stopGrok() {
+<<<<<<< HEAD
       if (this.grokTimer) {
         clearInterval(this.grokTimer);
         this.grokTimer = null;
       }
+=======
+      if (this.grokTimer) clearInterval(this.grokTimer);
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       this.grokRunning = false;
       if (!this.aiRunning) {
         this.aiMessage = '';
@@ -451,6 +539,7 @@ export default {
       }
     },
     stopAI() {
+<<<<<<< HEAD
       if (this.aiTimer) {
         clearInterval(this.aiTimer);
         this.aiTimer = null;
@@ -458,6 +547,12 @@ export default {
       this.aiRunning = false;
       this.isPerfect = false;
       this.aiEstimatedDistance = null; 
+=======
+      if (this.aiTimer) clearInterval(this.aiTimer);
+      this.aiRunning = false;
+      this.isPerfect = false;
+      this.aiEstimatedDistance = null; // 关闭AI时清空距离测算
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       if (!this.grokRunning) {
           this.aiMessage = '';
           this.isAnalyzing = false;
@@ -510,7 +605,10 @@ export default {
       }
 
       uni.uploadFile({
+<<<<<<< HEAD
         // 注意：如果你后端的路由严格要求带斜杠，这里可能需要改为 /smart-analyze/ 以避免 308 重定向
+=======
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
         url: `${this.serverUrl}/smart-analyze`,
         filePath: filePath,
         name: 'file',
@@ -542,6 +640,10 @@ export default {
                   }
                 }
 
+<<<<<<< HEAD
+=======
+                // 赋值 AI 后端返回的估算距离，将会自动覆盖本地的三角测距
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
                 if (aiData.subject_ratio) {
                   this.aiEstimatedDistance = this.calculateDistance(aiData.subject_ratio);
                 }
@@ -597,13 +699,20 @@ export default {
     toggleAudio() {
       this.isAudioEnabled = !this.isAudioEnabled;
       if (!this.isAudioEnabled && this.isSpeaking) {
+<<<<<<< HEAD
         if(this.audioContext) this.audioContext.stop();
+=======
+        this.audioContext.stop();
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
         this.onAudioFinished();
       }
       uni.showToast({ title: this.isAudioEnabled ? '语音开启' : '语音关闭', icon: 'none' });
     },
     playAudio(url) {
+<<<<<<< HEAD
       if (!this.audioContext) return;
+=======
+>>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       this.isSpeaking = true;
       this.audioContext.src = url;
       this.audioContext.play();
