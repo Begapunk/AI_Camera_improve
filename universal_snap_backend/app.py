@@ -382,7 +382,7 @@ def smart_analyze():
         # 调用大模型
         ai_result = call_smart_vision_model(img_base64, formatted_prompt)
 
-        # 将 AI 提取的占比和物理尺寸传回给前端，完成视觉测距
+        # 将 AI 提取的占比和物理尺寸传回给前端，完成视觉测距。
         return jsonify({
             "code": 200,
             "data": {

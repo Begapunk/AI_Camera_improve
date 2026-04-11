@@ -1,4 +1,4 @@
-#去各个平台创建KEY,平台链接在小程序配置文档里
+#去各个平台创建KEY,平台链接在小程序配置文档里。
 # 百度语音合成
 BAIDU_APP_ID = "***BAIDU_APP_ID***"
 BAIDU_API_KEY = "***BAIDU_API_KEY***"
