@@ -5,20 +5,9 @@ import uuid
 import random
 import json
 from io import BytesIO
-<<<<<<< HEAD
 from PIL import Image, ImageDraw, ImageFont #引入pillow生成验证码
 import cv2    # 引入 OpenCV 和 NumPy 用于图像处理
 import numpy as np
-=======
-
-# --- 引入 Pillow 用于生成图片验证码 ---
-from PIL import Image, ImageDraw, ImageFont
-
-# --- 引入 OpenCV 和 NumPy 用于图像处理 ---
-import cv2
-import numpy as np
-# -------------------------------------------
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -40,10 +29,6 @@ from settings import (
 from security.password_validator import PasswordValidator
 
 app = Flask(__name__)
-<<<<<<< HEAD
-=======
-# 开启全局跨域支持，确保小程序上传不被拦截
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # 基础路径配置
@@ -51,11 +36,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 AUDIO_FOLDER = os.path.join(BASE_DIR, 'static', 'audio')
 
-<<<<<<< HEAD
 # make sure目录still存在
-=======
-# 确保目录存在
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
 for folder in [UPLOAD_FOLDER, AUDIO_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
@@ -63,58 +44,31 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 # 初始化各平台 SDK 客户端
-<<<<<<< HEAD
 baidu_client = AipSpeech(BAIDU_APP_ID, BAIDU_API_KEY, BAIDU_SECRET_KEY)#百度云
 client = OpenAI(api_key=ALIYUN_API_KEY, base_url=ALIYUN_BASE_URL)  # 阿里云 Qwen-VL
 xai_client = OpenAI(api_key=GROK_API_KEY, base_url="https://api.x.ai/v1")#grok
-=======
-baidu_client = AipSpeech(BAIDU_APP_ID, BAIDU_API_KEY, BAIDU_SECRET_KEY)
-client = OpenAI(api_key=ALIYUN_API_KEY, base_url=ALIYUN_BASE_URL)  # 阿里云 Qwen-VL
-xai_client = OpenAI(api_key=GROK_API_KEY, base_url="https://api.x.ai/v1")
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
 
 visual_service = VisualService()
 visual_service.set_ak(VOLC_IA_AK)
 visual_service.set_sk(VOLC_IA_SK)
 password_validator = PasswordValidator()
-<<<<<<< HEAD
 CAPTCHA_STORE = {}#验证码存储
 
 
 def cleanup_captchas():
     """clean过期的验证码（有效期 5 分钟）"""
-=======
-
-# --- 内存验证码存储 (格式: {captcha_id: {"answer": "12", "expires": timestamp}}) ---
-CAPTCHA_STORE = {}
-
-
-def cleanup_captchas():
-    """清理过期的验证码（有效期 5 分钟）"""
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
     current_time = time.time()
     expired_keys = [k for k, v in CAPTCHA_STORE.items() if current_time > v['expires']]
     for k in expired_keys:
         del CAPTCHA_STORE[k]
 
 
-<<<<<<< HEAD
 def build_file_url(subpath, filename):
     base_url = request.host_url.rstrip('/')
     return f"{base_url}/{subpath}/{filename}"   # 构建文件地址
 
 
 # 生成透明线稿（后期作为备用功能或免费开放功能）
-=======
-# -------------------------------------------------------------------------
-# --- 辅助函数：构建动态 URL ---
-def build_file_url(subpath, filename):
-    base_url = request.host_url.rstrip('/')
-    return f"{base_url}/{subpath}/{filename}"
-
-
-# --- 辅助函数：生成透明背景的线稿 ---
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
 def create_transparent_sketch(image_bytes):
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -129,15 +83,9 @@ def create_transparent_sketch(image_bytes):
     return rgba
 
 
-<<<<<<< HEAD
 # 校验验证码
 def verify_captcha(captcha_id, captcha_answer):
     cleanup_captchas()  # 每次校验时清理过期数据
-=======
-# --- 辅助函数：校验验证码 ---
-def verify_captcha(captcha_id, captcha_answer):
-    cleanup_captchas()  # 每次校验时顺便清理过期数据
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
     if not captcha_id or not captcha_answer:
         return False, "请提供验证码"
 
@@ -154,19 +102,10 @@ def verify_captcha(captcha_id, captcha_answer):
     return True, "验证通过"
 
 
-<<<<<<< HEAD
 # 获取验证码接口
 @app.route('/api/captcha', methods=['GET'])
 def get_captcha():
     #  出一个小学生都会做的加减法
-=======
-# =========================================================================
-# ==================== 0. 获取验证码接口 ====================================
-# =========================================================================
-@app.route('/api/captcha', methods=['GET'])
-def get_captcha():
-    # 1. 生成简单的数学题
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
     num1 = random.randint(1, 10)
     num2 = random.randint(1, 10)
     operator = random.choice(['+', '*'])
@@ -178,11 +117,7 @@ def get_captcha():
         answer = str(num1 * num2)
         text = f"{num1} x {num2} = ?"
 
-<<<<<<< HEAD
     # 生成图片
-=======
-    # 2. 生成图片 (使用柔和的黄色系，避开红色)
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
     width, height = 120, 40
     image = Image.new('RGB', (width, height), color=(255, 250, 205))
     draw = ImageDraw.Draw(image)
@@ -222,13 +157,7 @@ def get_captcha():
     })
 
 
-<<<<<<< HEAD
 # 登录模块
-=======
-# =========================================================================
-# ==================== 1. 用户认证模块 ======================================
-# =========================================================================
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
@@ -266,7 +195,6 @@ def login():
     return jsonify({"message": message}) if success else (jsonify({"error": message}), 401)
 
 
-<<<<<<< HEAD
 # 智能拍摄助手分析模块
 @app.route('/analyze', methods=['POST'])
 def analyze():
@@ -282,25 +210,6 @@ def analyze():
             img_base64 = base64.b64encode(f.read()).decode()
         img_data_url = f"data:image/jpeg;base64,{img_base64}"
 
-=======
-# =========================================================================
-# ==================== 2. 核心分析模块 (Qwen-VL & Grok) ===================
-# =========================================================================
-@app.route('/analyze', methods=['POST'])
-def analyze():
-    file = request.files.get('file')
-    if not file: return jsonify({"error": "未上传文件"}), 400
-
-    filename = f"snap_{int(time.time())}_{secure_filename(file.filename)}"
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
-
-    with open(filepath, "rb") as f:
-        img_base64 = base64.b64encode(f.read()).decode()
-    img_data_url = f"data:image/jpeg;base64,{img_base64}"
-
-    try:
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
         completion = client.chat.completions.create(
             model="qwen-vl-plus",
             messages=[
@@ -320,24 +229,16 @@ def analyze():
             if not isinstance(res, dict):
                 audio_filename = f"advice_{int(time.time())}.mp3"
                 with open(os.path.join(AUDIO_FOLDER, audio_filename), 'wb') as f: f.write(res)
-<<<<<<< HEAD
                 audio_url = build_file_url('static/audio', audio_filename) #audio generation
 
         return jsonify({"advice": advice, "audioUrl": audio_url, "imageUrl": build_file_url('uploads', filename)})
     except Exception as e:
         print(f"Analyze API Error: {e}")
-=======
-                audio_url = build_file_url('static/audio', audio_filename)
-
-        return jsonify({"advice": advice, "audioUrl": audio_url, "imageUrl": build_file_url('uploads', filename)})
-    except Exception as e:
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
         return jsonify({"error": str(e)}), 500
 
 
 @app.route('/analyze-grok', methods=['POST'])
 def analyze_grok():
-<<<<<<< HEAD
     try:
         file = request.files.get('file')
         if not file: return jsonify({"error": "未上传文件"}), 400
@@ -350,20 +251,6 @@ def analyze_grok():
             img_base64 = base64.b64encode(f.read()).decode()
         img_data_url = f"data:image/jpeg;base64,{img_base64}"
 
-=======
-    file = request.files.get('file')
-    if not file: return jsonify({"error": "未上传文件"}), 400
-
-    filename = f"grok_{int(time.time())}_{secure_filename(file.filename)}"
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
-
-    with open(filepath, "rb") as f:
-        img_base64 = base64.b64encode(f.read()).decode()
-    img_data_url = f"data:image/jpeg;base64,{img_base64}"
-
-    try:
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
         completion = xai_client.chat.completions.create(
             model="grok-2-vision-1212",
             messages=[
@@ -393,17 +280,9 @@ def analyze_grok():
         return jsonify({"error": f"Grok 服务异常: {str(e)}"}), 500
 
 
-<<<<<<< HEAD
 # 细分人、物、景三种模式，针对不同的场景给出不同的建议（后续应改进相应方案）
 
 # 在 Prompt 中让 AI 提取物理尺寸与画面占比，联动前端视觉测距算法！
-=======
-# =========================================================================
-# =============== 【核心联动修改】3. 三分流智能构图与视觉测距闭环 =============
-# =========================================================================
-
-# 💡在 Prompt 中强制 AI 提取物理尺寸与画面占比，赋能前端视觉测距算法！
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
 PROMPT_TEMPLATES = {
     "person": """
 你是一个专业的人像摄影指导大师。请分析这张图片，并结合用户当前的手机参数给出构图建议。
@@ -477,7 +356,6 @@ def call_smart_vision_model(img_base64, prompt):
 
 @app.route('/smart-analyze', methods=['POST'])
 def smart_analyze():
-<<<<<<< HEAD
     # ⚠️ 将文件读取和路径生成放入 try 块中，防止崩溃抛出 HTML
     try:
         file = request.files.get('file')
@@ -505,33 +383,6 @@ def smart_analyze():
         ai_result = call_smart_vision_model(img_base64, formatted_prompt)
 
         # 将 AI 提取的占比和物理尺寸传回给前端，完成视觉测距。
-=======
-    file = request.files.get('file')
-    if not file:
-        return jsonify({"error": "No image file provided"}), 400
-
-    filename = f"smart_{int(time.time())}_{secure_filename(file.filename)}"
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
-
-    with open(filepath, "rb") as f:
-        img_base64 = base64.b64encode(f.read()).decode()
-
-    mode = request.form.get('mode', 'person')
-    tilt_angle = request.form.get('tilt_angle', '0')
-
-    if mode not in PROMPT_TEMPLATES:
-        return jsonify({"error": "Invalid mode"}), 400
-
-    base_prompt = PROMPT_TEMPLATES[mode]
-    formatted_prompt = base_prompt.format(tilt_angle=tilt_angle)
-
-    try:
-        # 调用大模型
-        ai_result = call_smart_vision_model(img_base64, formatted_prompt)
-
-        # 💡将 AI 提取的占比和物理尺寸安全地传回给前端，完成视觉测距闭环！
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
         return jsonify({
             "code": 200,
             "data": {
@@ -545,7 +396,6 @@ def smart_analyze():
         })
 
     except Exception as e:
-<<<<<<< HEAD
         error_msg = f"后端运行异常: {str(e)}"
         print(f"Smart AI Error: {error_msg}")
         return jsonify({
@@ -554,15 +404,6 @@ def smart_analyze():
             "data": {
                 "is_perfect": False,
                 "advice": "系统开小差了，请稍后再试",
-=======
-        print(f"Smart AI Error: {str(e)}")
-        return jsonify({
-            "code": 500,
-            "error": "AI analysis failed",
-            "data": {
-                "is_perfect": False,
-                "advice": "识别超时，请调整手机稍后再试",
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
                 "subject_ratio": 0.0,
                 "subject_name": "",
                 "subject_real_width": 0.0
@@ -570,13 +411,7 @@ def smart_analyze():
         }), 500
 
 
-<<<<<<< HEAD
 # 模板库管理一以及模版分析模块
-=======
-# =========================================================================
-# ==================== 4. 线稿、环境与模板管理 ==============================
-# =========================================================================
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
 @app.route('/generate-sketch', methods=['POST'])
 def generate_sketch():
     file = request.files.get('file')
@@ -606,7 +441,6 @@ def analyze_env():
     file = request.files.get('file')
     if not file: return jsonify({"error": "未上传文件"}), 400
 
-<<<<<<< HEAD
     try:
         filename = f"env_{int(time.time())}.jpg"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -615,16 +449,6 @@ def analyze_env():
         with open(filepath, "rb") as f:
             img_base64 = base64.b64encode(f.read()).decode()
 
-=======
-    filename = f"env_{int(time.time())}.jpg"
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
-
-    with open(filepath, "rb") as f:
-        img_base64 = base64.b64encode(f.read()).decode()
-
-    try:
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
         completion = client.chat.completions.create(
             model="qwen-vl-plus",
             messages=[
@@ -646,7 +470,6 @@ def analyze_template():
     save_as_template = request.form.get('save_as_template') == 'true'
     if not file: return jsonify({"error": "未上传文件"}), 400
 
-<<<<<<< HEAD
     try:
         filename = secure_filename(file.filename)
         filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -655,16 +478,6 @@ def analyze_template():
         with open(filepath, "rb") as f:
             image_base64 = base64.b64encode(f.read()).decode()
 
-=======
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
-
-    with open(filepath, "rb") as f:
-        image_base64 = base64.b64encode(f.read()).decode()
-
-    try:
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
         result = visual_service.image_score({"image_base64": image_base64})
         data = result.get('data', {})
         score = data.get('score', 0.0)
@@ -707,13 +520,7 @@ def delete_template():
         return jsonify({"error": str(e)}), 500
 
 
-<<<<<<< HEAD
 # 前端调试模块
-=======
-# =========================================================================
-# ==================== 5. 静态资源路由 ======================================
-# =========================================================================
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
