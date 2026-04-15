@@ -106,7 +106,7 @@ def verify_captcha(captcha_id, captcha_answer):
 @app.route('/api/captcha', methods=['GET'])
 def get_captcha():
     #  出一个小学生都会做的加减法
-    num1 = random.randint(1, 10)
+    num1 = random.randint(1, 10)#111
     num2 = random.randint(1, 10)
     operator = random.choice(['+', '*'])
 
