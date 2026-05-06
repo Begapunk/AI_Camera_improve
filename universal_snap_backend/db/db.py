@@ -18,6 +18,7 @@ except ImportError:
 
 from werkzeug.security import generate_password_hash, check_password_hash
 
+
 # ... 剩下的代码保持不变 ...
 
 def insert_photo_analysis(filename, advice, score):
@@ -57,6 +58,7 @@ def get_all_photo_analyses():
         except:
             pass
 
+
 def delete_photo_analysis(template_id):
     try:
         conn = pymysql.connect(**DB_CONFIG)
@@ -81,7 +83,8 @@ def delete_photo_analysis(template_id):
         except:
             pass
 
-#注册和登陆
+
+# 注册和登陆
 def register_user(username, password):
     try:
         conn = pymysql.connect(**DB_CONFIG)
@@ -104,6 +107,7 @@ def register_user(username, password):
         except:
             pass
 
+
 def verify_user(username, password):
     try:
         conn = pymysql.connect(**DB_CONFIG)
@@ -120,6 +124,107 @@ def verify_user(username, password):
     except Exception as e:
         print("登录验证失败:", e)
         return False, str(e)
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+
+def get_user_info(username):
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        cursor.execute("SELECT id, username, nickname, avatar, create_time FROM users WHERE username = %s", (username,))
+        result = cursor.fetchone()
+        return result
+    except Exception as e:
+        print("获取用户信息失败:", e)
+        return None
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+
+def update_user_info(username, nickname=None, avatar=None):
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        updates = []
+        params = []
+
+        if nickname is not None:
+            updates.append("nickname = %s")
+            params.append(nickname)
+        if avatar is not None:
+            updates.append("avatar = %s")
+            params.append(avatar)
+
+        if not updates:
+            return False, "没有需要更新的字段"
+
+        params.append(username)
+        sql = f"UPDATE users SET {', '.join(updates)} WHERE username = %s"
+        cursor.execute(sql, tuple(params))
+        conn.commit()
+
+        return True, "更新成功"
+    except Exception as e:
+        print("更新用户信息失败:", e)
+        return False, str(e)
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+
+def update_user_password(username, old_password, new_password):
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT password_hash FROM users WHERE username = %s", (username,))
+        result = cursor.fetchone()
+        if not result:
+            return False, "用户不存在"
+
+        pwd_hash = result[0]
+        if not check_password_hash(pwd_hash, old_password):
+            return False, "旧密码错误"
+
+        new_pwd_hash = generate_password_hash(new_password)
+        cursor.execute("UPDATE users SET password_hash = %s WHERE username = %s", (new_pwd_hash, username))
+        conn.commit()
+
+        return True, "密码修改成功"
+    except Exception as e:
+        print("修改密码失败:", e)
+        return False, str(e)
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+
+def get_user_by_id(user_id):
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        cursor.execute("SELECT id, username, nickname, avatar, create_time FROM users WHERE id = %s", (user_id,))
+        result = cursor.fetchone()
+        return result
+    except Exception as e:
+        print("根据ID获取用户信息失败:", e)
+        return None
     finally:
         try:
             cursor.close()
