@@ -14,7 +14,7 @@ try:
     from settings import DB_CONFIG
 except ImportError:
     # 如果没改名，依然叫 config
-    from config import DB_CONFIG
+    import config
 
 from werkzeug.security import generate_password_hash, check_password_hash
 
