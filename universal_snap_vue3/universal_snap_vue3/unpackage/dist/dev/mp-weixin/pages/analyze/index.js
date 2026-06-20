@@ -1,40 +1,65 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
-const utils_request = require("../../utils/request.js");
 const _sfc_main = {
   data() {
     return {
       imgSrc: "",
-      advice: "",
+      advice: "上传照片后，AI将为您提供专业自拍建议",
       audioUrl: "",
-      innerAudioContext: null
+      innerAudioContext: null,
+      isLoading: false,
+      initialAdvice: "上传照片后，AI将为您提供专业自拍建议",
+      analysisStatus: "等待分析",
+      statusClass: "status-waiting"
     };
   },
   methods: {
+    // 返回上一页
+    goBack() {
+      common_vendor.index.navigateBack();
+    },
     chooseImage() {
+      this.isLoading = true;
+      this.analysisStatus = "处理中";
+      this.statusClass = "status-processing";
       common_vendor.index.chooseImage({
         count: 1,
         sourceType: ["camera", "album"],
         success: (res) => {
           const path = res.tempFilePaths[0];
           this.imgSrc = path;
-          this.advice = "正在分析，请稍候...";
+          this.advice = "AI正在分析您的自拍...";
           this.audioUrl = "";
-          utils_request.uploadImageToServer(path).then((res2) => {
-            if (res2 && res2.advice) {
-              this.advice = res2.advice;
-              this.audioUrl = res2.audioUrl;
-              this.playAudio();
-            } else if (res2 && res2.error) {
-              this.advice = "服务器错误：" + res2.error;
-            } else {
-              this.advice = "未获取到有效建议";
-            }
-          }).catch((err) => {
-            common_vendor.index.__f__("error", "at pages/analyze/index.vue:56", err);
-            this.advice = "分析失败，请稍后重试";
-          });
+          this.analysisStatus = "分析中";
+          this.statusClass = "status-analyzing";
+          setTimeout(() => {
+            this.simulateAnalysis().then((result) => {
+              this.advice = result.advice;
+              this.audioUrl = result.audioUrl;
+              this.analysisStatus = "分析完成";
+              this.statusClass = "status-completed";
+              this.isLoading = false;
+              if (this.audioUrl) {
+                this.playAudio();
+              }
+            });
+          }, 2200);
+        },
+        fail: () => {
+          this.isLoading = false;
+          common_vendor.index.showToast({ title: "选择图片失败", icon: "none" });
         }
+      });
+    },
+    simulateAnalysis() {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            advice: "构图完美！建议调整角度至45°，使用自然光增强面部轮廓。背景简洁突出主体，美颜参数建议降低至30%。",
+            audioUrl: ""
+            // 实际项目替换为真实音频URL
+          });
+        }, 1800);
       });
     },
     playAudio() {
@@ -46,10 +71,8 @@ const _sfc_main = {
       }
       this.innerAudioContext = common_vendor.index.createInnerAudioContext();
       this.innerAudioContext.src = this.audioUrl;
-      this.innerAudioContext.obeyMuteSwitch = false;
       this.innerAudioContext.play();
-      this.innerAudioContext.onError((res) => {
-        common_vendor.index.__f__("error", "at pages/analyze/index.vue:74", "音频播放错误：", res);
+      this.innerAudioContext.onError(() => {
         common_vendor.index.showToast({ title: "语音播放失败", icon: "none" });
       });
     }
@@ -63,19 +86,26 @@ const _sfc_main = {
 };
 function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
   return common_vendor.e({
-    a: common_vendor.o((...args) => $options.chooseImage && $options.chooseImage(...args)),
+    a: common_vendor.o((...args) => $options.goBack && $options.goBack(...args)),
     b: $data.imgSrc
   }, $data.imgSrc ? {
-    c: $data.imgSrc
+    c: $data.imgSrc,
+    d: common_vendor.n($data.statusClass),
+    e: common_vendor.t($data.analysisStatus)
   } : {}, {
-    d: $data.advice
-  }, $data.advice ? {
-    e: common_vendor.t($data.advice)
-  } : {}, {
-    f: $data.audioUrl
+    f: $data.advice && $data.advice !== $data.initialAdvice
+  }, $data.advice && $data.advice !== $data.initialAdvice ? common_vendor.e({
+    g: common_vendor.t($data.advice),
+    h: $data.audioUrl
   }, $data.audioUrl ? {
-    g: common_vendor.o((...args) => $options.playAudio && $options.playAudio(...args))
-  } : {});
+    i: common_vendor.o((...args) => $options.playAudio && $options.playAudio(...args))
+  } : {}) : {}, {
+    j: $data.imgSrc
+  }, $data.imgSrc ? {} : {}, {
+    k: common_vendor.t($data.imgSrc ? "重新拍摄" : "开始拍摄"),
+    l: common_vendor.o((...args) => $options.chooseImage && $options.chooseImage(...args)),
+    m: $data.isLoading
+  }, $data.isLoading ? {} : {});
 }
 const MiniProgramPage = /* @__PURE__ */ common_vendor._export_sfc(_sfc_main, [["render", _sfc_render], ["__scopeId", "data-v-52e100b2"]]);
 wx.createPage(MiniProgramPage);

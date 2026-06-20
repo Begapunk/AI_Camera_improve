@@ -1,118 +1,140 @@
 <template>
-  <view class="home-container">
-    <text class="welcome">欢迎，{{ username }}</text>
-    <text class="sub-title">  万能拍将给您带来更好的自拍建议，帮您轻松捕捉最佳姿势和光线。</text>
-    <text class="sub-title">  无论是日常自拍还是重要时刻，都能让您的照片更具专业感。</text>
+  <view class="phone-container">
+    <view class="status-bar"></view>
 
-    <view v-if="showFaceCamera" class="face-camera-mask">
-      <view class="face-camera-box">
-        <camera device-position="front" flash="off" class="mini-camera"></camera>
-        <view class="face-hint">请正对面部进行采集</view>
-        <button class="mini-btn" @tap="captureAndBindFace">确认录入</button>
-        <button class="mini-btn cancel" @tap="showFaceCamera = false">取消</button>
+    <view class="header">
+      <view class="greeting">
+        <text class="today">今天</text>
+        <text class="welcome">欢迎，{{ username }}</text>
+      </view>
+      <view class="avatar">👤</view>
+    </view>
+
+    <scroll-view class="content" scroll-y enhanced :show-scrollbar="false">
+      <view class="ai-card" @tap="goToCamera">
+        <view class="ai-badge">AI 拍摄</view>
+        <view class="ai-title">智能构图 · 姿势指导</view>
+        <view class="ai-desc">自动优化角度、光线、构图</view>
+      </view>
+
+      <view class="grid">
+        <view class="grid-item" @tap="goToCamera">
+          <view class="icon-box" style="background:#fff7e6; color:#ff9500;">📷</view>
+          <text class="item-text">智能拍摄助手</text>
+        </view>
+        <view class="grid-item" @tap="showFaceCamera = true">
+          <view class="icon-box face-icon-box" :class="faceRegistered ? 'face-bound' : ''">
+            {{ faceRegistered ? '✅' : '🔐' }}
+          </view>
+          <text class="item-text">{{ faceRegistered ? '人脸已绑定' : '人脸绑定' }}</text>
+        </view>
+        <view class="grid-item" @tap="goToAnalyze">
+          <view class="icon-box" style="background:#e1ffee; color:#34c759;">👤</view>
+          <text class="item-text">自拍分析</text>
+        </view>
+        <view class="grid-item" @tap="goToEnvironment">
+          <view class="icon-box" style="background:#e0f7ff; color:#00bcd4;">🌤️</view>
+          <text class="item-text">环境分析</text>
+        </view>
+        <view class="grid-item" @tap="goToTemplate">
+          <view class="icon-box" style="background:#ffe6f0; color:#ff2d55;">📋</view>
+          <text class="item-text">模板评分</text>
+        </view>
+        <view class="grid-item" @tap="goToTemplateCollection">
+          <view class="icon-box" style="background:#e8f0fe; color:#4f46e5;">📁</view>
+          <text class="item-text">模板合集</text>
+        </view>
+        <view class="grid-item" @tap="goToMetro">
+          <view class="icon-box" style="background:#e8f5e9; color:#2e7d32;">🚇</view>
+          <text class="item-text">地铁模式</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="tabbar">
+      <view class="tab active" @tap="goHome">
+        <text class="tab-icon">⌂</text>
+        <text>首页</text>
+      </view>
+      <view class="tab" @tap="goToProfile">
+        <text class="tab-icon">👤</text>
+        <text>我的</text>
       </view>
     </view>
 
-    <button @tap="goToCamera" class="btn-primary">
-      <uni-icons type="camera-filled" size="20" color="#fff" class="icon" />
-      智能拍摄助手
-    </button>
-
-    <!-- 【新增】AR 测距专属独立入口 -->
-    <button @tap="goToARCamera" class="btn-ar">
-      <uni-icons type="scan" size="20" color="#fff" class="icon" />
-      AR 测距
-    </button>
-
-    <button @tap="showFaceCamera = true" class="btn-face">
-      <uni-icons type="auth-filled" size="20" color="#fff" class="icon" />
-      绑定人脸登录
-    </button>
-
-    <button @tap="goToAnalyze">
-      <uni-icons type="person-filled" size="20" color="#fff" class="icon" />
-      自拍建议分析
-    </button>
-
-    <button @tap="goToEnvironment">
-      <uni-icons type="compass" size="20" color="#fff" class="icon" />
-      环境分析
-    </button>
-
-    <button @tap="goToTemplate">
-      <uni-icons type="list" size="20" color="#fff" class="icon" />
-      模板评分分析
-    </button>
-
-    <button @tap="goToTemplateCollection" class="last-btn">
-      <uni-icons type="folder" size="20" color="#fff" class="icon" />
-      模板合集
-    </button>
+    <view v-if="showFaceCamera" class="face-mask">
+      <view class="face-card">
+        <camera device-position="front" flash="off" class="face-camera"></camera>
+        <text class="face-hint">请正对面部进行采集</text>
+        <button class="face-btn" @tap="captureAndBindFace">确认录入</button>
+        <button class="face-btn cancel" @tap="showFaceCamera = false">取消</button>
+      </view>
+    </view>
   </view>
 </template>
 
 <script>
-import { getBaseUrl } from '@/utils/request.js' // 根据实际路径调整
+import { updateFaceApi, getUserInfoApi } from '@/utils/request.js'
 
 export default {
   data() {
     return {
       username: '',
-      showFaceCamera: false // 控制人脸补录相机的显示
+      showFaceCamera: false,
+      faceRegistered: false
     }
   },
   onShow() {
     this.username = uni.getStorageSync('username') || '用户'
+    if (this.username && this.username !== '用户') {
+      getUserInfoApi(this.username).then((res) => {
+        if (res.statusCode === 200 && res.data.user) {
+          this.faceRegistered = !!res.data.user.face_registered
+        }
+      }).catch(() => {})
+    }
   },
   methods: {
-    // 补录人脸的核心逻辑
     captureAndBindFace() {
       const ctx = uni.createCameraContext();
       ctx.takePhoto({
         quality: 'high',
         success: (res) => {
           uni.showLoading({ title: '正在绑定...', mask: true });
-          
-          // 转 Base64
+          const filePath = res.tempImagePath || res.tempFilePath;
           const fs = uni.getFileSystemManager();
-          const base64Data = fs.readFileSync(res.tempFilePath, 'base64');
-          
-          // 发送到后端 update-face 接口
-          uni.request({
-            url: `${getBaseUrl()}`, 
-            method: 'POST',
-            data: {
+          const base64Data = fs.readFileSync(filePath, 'base64');
+          updateFaceApi({
               username: this.username,
               face_data: base64Data
-            },
-            success: (result) => {
+            })
+            .then((result) => {
               uni.hideLoading();
               if (result.statusCode === 200) {
-                uni.showToast({ title: '绑定成功！', icon: 'success' });
+                this.faceRegistered = true;
+                uni.showToast({ title: '绑定成功', icon: 'success' });
                 this.showFaceCamera = false;
               } else {
-                uni.showModal({ 
-                  title: '绑定失败', 
+                uni.showModal({
+                  title: '绑定失败',
                   content: result.data.error || '请重试',
-                  showCancel: false 
+                  showCancel: false
                 });
               }
-            },
-            fail: () => {
+            })
+            .catch(() => {
               uni.hideLoading();
               uni.showToast({ title: '网络错误', icon: 'none' });
-            }
-          });
+            });
+        },
+        fail: () => {
+          uni.showToast({ title: '摄像头启动失败', icon: 'none' });
         }
       });
     },
+    goHome() {},
     goToCamera() {
       uni.navigateTo({ url: '/pages/camera/index' })
-    },
-    // 【新增】跳转到独立的 AR 测距页面
-    goToARCamera() {
-      // 提示：你需要在 pages.json 中注册这个路径，并在下面建一个 ar 文件夹存放刚才的 AR 代码
-      uni.navigateTo({ url: '/pages/ar/index' })
     },
     goToAnalyze() {
       uni.navigateTo({ url: '/pages/analyze/index' })
@@ -125,125 +147,282 @@ export default {
     },
     goToTemplateCollection() {
       uni.navigateTo({ url: '/pages/template/templateCollection' })
+    },
+    goToProfile() {
+      uni.navigateTo({ url: '/pages/profile/index' })
+    },
+    goToMetro() {
+      uni.navigateTo({ url: '/pages/metro/index' })
     }
   }
 }
 </script>
 
 <style scoped>
-:root {
-  --primary: #1E80FF;
-  --primary-dark: #166DFF;
-  --accent: #00C2FF;
-  --face-purple: #7B61FF; 
-}
-
-.home-container {
+.phone-container {
+  width: 100%;
   min-height: 100vh;
+  background: linear-gradient(180deg, #fff8f0 0%, #fff5eb 50%, #fff0e6 100%);
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  position: relative;
+  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.status-bar {
+  height: env(safe-area-inset-top, 44px);
+  background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, transparent 100%);
+}
+
+.header {
+  width: 100%;
+  padding: 20rpx 32rpx;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  padding: 40px 24px;
-  box-sizing: border-box;
-  background:
-    radial-gradient(circle at top left, rgba(140, 190, 255, 0.3), transparent 60%),
-    radial-gradient(circle at bottom right, rgba(120, 170, 255, 0.25), transparent 70%),
-    linear-gradient(135deg, #c7dbff 0%, #dcedff 50%, #f5fbff 100%);
+}
+
+.greeting {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.today {
+  font-size: 26rpx;
+  color: #9CA8B8;
+  margin-bottom: 8rpx;
 }
 
 .welcome {
-  font-size: 24px;
+  max-width: 520rpx;
+  font-size: 40rpx;
   font-weight: 700;
-  color: #166DFF;
-  margin-bottom: 20px;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  color: #2D3E50;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.sub-title {
-  font-size: 14px;
-  color: #4d6fae;
-  line-height: 1.6;
-  text-align: center;
-  margin-bottom: 5px;
-}
-
-/* 按钮基础样式 */
-button {
-  width: 260px;
-  padding: 12px 0;
-  margin: 8px 0;
-  font-size: 16px;
-  color: #fff;
-  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(22, 109, 255, 0.2);
-  font-weight: 600;
+.avatar {
+  flex: 0 0 88rpx;
+  width: 88rpx;
+  height: 88rpx;
+  background: linear-gradient(135deg, #FFE4B8 0%, #FFD49A 100%);
+  border-radius: 24rpx;
   display: flex;
-  justify-content: center;
   align-items: center;
-}
-
-/* 智能拍摄助手专用高亮 */
-.btn-primary {
-  background: linear-gradient(90deg, #1e80ff 0%, #00c2ff 100%);
-  margin-top: 30px;
-}
-
-/* 【新增】AR 测距专用样式：使用具有科技感/雷达感的青蓝渐变 */
-.btn-ar {
-  background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%);
-  box-shadow: 0 4px 12px rgba(0, 114, 255, 0.3);
-}
-
-/* 人脸识别专用紫色 */
-.btn-face {
-  background: linear-gradient(90deg, #7B61FF 0%, #9747FF 100%);
-  box-shadow: 0 4px 12px rgba(123, 97, 255, 0.3);
-}
-
-/* 补录相机浮层样式 */
-.face-camera-mask {
-  position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.8);
-  z-index: 999;
-  display: flex;
   justify-content: center;
-  align-items: center;
+  font-size: 40rpx;
+  box-shadow: 0 8rpx 20rpx rgba(255, 140, 66, 0.15);
 }
 
-.face-camera-box {
-  background: #fff;
-  padding: 20px;
-  border-radius: 20px;
+.content {
+  width: 100%;
+  flex: 1;
+  padding: 16rpx 32rpx calc(140rpx + env(safe-area-inset-bottom, 0px));
+}
+
+.ai-card {
+  width: 100%;
+  background: linear-gradient(135deg, #FFB25B 0%, #FF7E5F 100%);
+  border-radius: 32rpx;
+  padding: 40rpx;
+  margin-bottom: 32rpx;
+  color: white;
+  box-shadow: 0 20rpx 48rpx -16rpx rgba(255, 110, 97, 0.4);
+  transition: transform 0.25s;
+}
+
+.ai-card:active {
+  transform: scale(0.98);
+}
+
+.ai-badge {
+  background: rgba(255,255,255,0.25);
+  display: inline-block;
+  padding: 10rpx 24rpx;
+  border-radius: 40rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  backdrop-filter: blur(4px);
+}
+
+.ai-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  margin-top: 20rpx;
+}
+
+.ai-desc {
+  font-size: 26rpx;
+  opacity: 0.9;
+  margin-top: 12rpx;
+  line-height: 1.5;
+}
+
+.grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24rpx;
+}
+
+.grid-item {
+  min-width: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255, 248, 240, 0.95) 100%);
+  border-radius: 28rpx;
+  padding: 32rpx 20rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-shadow: 0 12rpx 28rpx -8rpx rgba(0,0,0,0.04), 0 4rpx 12rpx rgba(0,0,0,0.02);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 245, 230, 0.6);
 }
 
-.mini-camera {
-  width: 240px;
-  height: 240px;
-  border-radius: 120px;
-  margin-bottom: 15px;
+.grid-item:active {
+  transform: scale(0.95);
+  box-shadow: 0 6rpx 14rpx -4rpx rgba(0,0,0,0.06);
+}
+
+.icon-box {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 8rpx 16rpx rgba(0,0,0,0.06);
+}
+
+.item-text {
+  width: 100%;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #2D3E50;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  min-height: 100rpx;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255, 248, 240, 0.95) 100%);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid rgba(255, 245, 230, 0.8);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 -8rpx 24rpx rgba(0,0,0,0.02);
+  z-index: 20;
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 22rpx;
+  color: #9CA8B8;
+  transition: all 0.2s;
+  padding: 8rpx 24rpx;
+  border-radius: 40rpx;
+}
+
+.tab.active {
+  color: #FF8C42;
+  background: rgba(255, 140, 66, 0.06);
+}
+
+.tab-icon {
+  font-size: 42rpx;
+  line-height: 1;
+  margin-bottom: 6rpx;
+}
+
+.face-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 48rpx;
+}
+
+.face-card {
+  width: 100%;
+  max-width: 560rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.99) 0%, rgba(255, 248, 240, 0.98) 100%);
+  border-radius: 48rpx;
+  padding: 48rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 32rpx 64rpx -20rpx rgba(0,0,0,0.15);
+  border: 1px solid rgba(255, 245, 230, 0.8);
+}
+
+.face-camera {
+  width: 320rpx;
+  height: 320rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 24rpx;
+  border: 4px solid #FFAD7A;
+  box-shadow: 0 12rpx 24rpx rgba(0,0,0,0.08);
 }
 
 .face-hint {
-  color: #666;
-  font-size: 14px;
-  margin-bottom: 15px;
+  font-size: 30rpx;
+  color: #5B6E8C;
+  margin-bottom: 32rpx;
+  font-weight: 500;
 }
 
-.mini-btn {
-  width: 180px;
-  margin: 5px 0;
+.face-btn {
+  width: 100%;
+  padding: 24rpx;
+  background: linear-gradient(135deg, #FFB25B 0%, #FF7E5F 100%);
+  color: white;
+  border-radius: 48rpx;
+  margin-bottom: 16rpx;
+  font-weight: 650;
+  font-size: 30rpx;
+  border: none;
+  box-shadow: 0 12rpx 24rpx -8rpx rgba(255, 110, 97, 0.3);
+  transition: all 0.2s;
 }
 
-.mini-btn.cancel {
-  background: #999;
+.face-btn:active {
+  transform: scale(0.97);
 }
 
-.icon { margin-right: 10px; }
-button:active { transform: scale(0.98); }
+.face-btn.cancel {
+  background: #F0F0F0;
+  color: #9CA8B8;
+  box-shadow: none;
+}
+
+.face-icon-box {
+  background: #f5efff;
+  color: #af52de;
+}
+
+.face-icon-box.face-bound {
+  background: #e1ffee;
+  color: #34c759;
+}
 </style>

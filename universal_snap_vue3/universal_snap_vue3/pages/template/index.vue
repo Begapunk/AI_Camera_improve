@@ -1,44 +1,83 @@
 <template>
   <view class="container">
-    <button @tap="chooseImage">选择照片评分</button>
-    <image v-if="imgSrc" :src="imgSrc" mode="aspectFit" style="width: 300px; height: 300px;" />
-
-    <view v-if="score">
-
-	<view v-if="score" class="score-card">
-  <text class="score-value">{{ formattedScore }}</text>
-  <text class="score-total">/ 1</text>
-	</view>
-    </view>
-    <view v-if="advice" class="result">
-      <text>AI 建议：</text>
-      <text>{{ advice }}</text>
+    <!-- 顶部导航栏（模拟联立风格） -->
+    <view class="nav-bar">
+      <view class="back-btn" @click="goBack">
+        <text class="back-icon">←</text>
+      </view>
+      <text class="nav-title">模板评分</text>
+      <view class="right-placeholder"></view>
     </view>
 
-    <view class="button-group" v-if="imgSrc">
-      <button @tap="submitTemplate(false)">获取AI评分</button>
-      <button @tap="submitTemplate(true)">保存为模版</button>
+    <!-- 图片预览区 -->
+    <view class="image-section" v-if="imgSrc">
+      <view class="image-card">
+        <image :src="imgSrc" mode="aspectFill" class="preview-img" />
+        <view class="image-badge">待评分</view>
+      </view>
     </view>
+    <view v-else class="placeholder-section">
+      <view class="camera-icon">📷</view>
+      <text class="placeholder-text">点击下方按钮选择照片</text>
+      <text class="placeholder-hint">支持拍摄或相册选取</text>
+    </view>
+
+    <!-- 评分结果卡片 -->
+    <view v-if="score" class="score-card">
+      <text class="score-label">综合得分</text>
+      <view class="score-value-wrap">
+        <text class="score-value">{{ formattedScore }}</text>
+        <text class="score-total">/ 1</text>
+      </view>
+    </view>
+
+    <!-- AI 建议卡片 -->
+    <view v-if="advice" class="advice-card">
+      <view class="advice-header">
+        <text class="advice-icon">✨</text>
+        <text class="advice-title">AI 评分建议</text>
+      </view>
+      <text class="advice-text">{{ advice }}</text>
+    </view>
+
+    <!-- 按钮组 -->
+    <view class="button-group">
+      <button class="btn-outline" @tap="chooseImage">
+        <text class="btn-icon">📷</text>
+        选择照片
+      </button>
+      <button v-if="imgSrc" class="btn-primary" @tap="submitTemplate(false)">
+        🧠 获取AI评分
+      </button>
+      <button v-if="imgSrc && score" class="btn-secondary" @tap="submitTemplate(true)">
+        💾 保存为模板
+      </button>
+    </view>
+
+    <!-- 底部安全区提示（无实际功能） -->
+    <view class="bottom-safe"></view>
   </view>
 </template>
 
-
 <script setup>
 import { ref, computed } from 'vue'
-import { analyzeTemplateApi } from '@/utils/request.js'   // ⬅️ 引入新封装
+import { analyzeTemplateApi } from '@/utils/request.js'
 
 const imgSrc  = ref('')
 const score   = ref('')
 const advice  = ref('')
 
-/* 显示两位小数（或任意空值处理） */
 const formattedScore = computed(() => {
   if (score.value === '' || score.value == null) return ''
   const num = parseFloat(score.value)
   return isNaN(num) ? '' : num.toFixed(3)
 })
 
-function chooseImage () {
+function goBack() {
+  uni.navigateBack()
+}
+
+function chooseImage() {
   uni.chooseImage({
     count: 1,
     sourceType: ['camera', 'album'],
@@ -50,13 +89,12 @@ function chooseImage () {
   })
 }
 
-async function submitTemplate (saveAsTemplate) {
+async function submitTemplate(saveAsTemplate) {
   if (!imgSrc.value) return
   uni.showLoading({ title: '分析中...', mask: true })
   try {
     const res = await analyzeTemplateApi(imgSrc.value, saveAsTemplate)
     uni.hideLoading()
-
     if (res.error) {
       uni.showToast({ title: '分析失败', icon: 'none' })
       return
@@ -73,163 +111,328 @@ async function submitTemplate (saveAsTemplate) {
 }
 </script>
 
-
 <style scoped>
-:root {
-  --primary: #1E80FF;
-  --primary-dark: #166DFF;
-  --primary-light: #EAF4FF;
-  --bg-gradient: linear-gradient(160deg, #F0F8FF 0%, #EAF4FF 100%);
-  --card-bg: #ffffff;
-  --text-dark: #0D1E40;
-  --shadow: 0 8rpx 20rpx rgba(30, 128, 255, 0.18);
-  --shadow-light: 0 6rpx 16rpx rgba(0, 0, 0, 0.06);
-}
-
 .container {
   min-height: 100vh;
-  background: radial-gradient(circle at top left, #E3F2FF 0%, #C1DCFF 30%, #A3C8FF 60%, #8AB8FF 100%);
+  background: linear-gradient(180deg, #fff8f0 0%, #fff5eb 50%, #fff0e6 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 60rpx 30rpx;
+  padding: 30rpx 32rpx 60rpx;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* 选择按钮（主按钮） */
-button {
-  width: 90%;
-  max-width: 460rpx;
-  padding: 24rpx 0;
-  margin: 20rpx 0;
-  font-size: 30rpx;
-  font-weight: bold;
-  color: #fff;
-  background: linear-gradient(to right, var(--primary), var(--primary-dark));
-  border: none;
-  border-radius: 40rpx;
-  box-shadow: var(--shadow);
-  transition: all 0.3s;
-}
-button:active {
-  opacity: 0.9;
-}
-
-/* 图片展示 */
-image {
-  width: 300px;
-  height: 300px;
-  margin: 40rpx 0 30rpx;
-  border-radius: 28rpx;
-  object-fit: contain;
-  box-shadow: var(--shadow-light);
-  border: 3rpx solid var(--primary-light);
-  background: #fff;
-}
-
-/* 分数卡片 */
-view[v-if="score"] {
-  width: 90%;
-  max-width: 500rpx;
-  background: var(--card-bg);
-  border-left: 8rpx solid var(--primary);
-  padding: 28rpx 30rpx;
-  border-radius: 24rpx;
-  box-shadow: var(--shadow);
-  margin-top: 20rpx;
-  font-size: 28rpx;
-  color: var(--text-dark);
+.nav-bar {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 16rpx;
-}
-view[v-if="score"] text:last-child {
-  font-weight: bold;
-  font-size: 32rpx;
-  color: var(--primary-dark);
-}
-
-/* AI 建议卡片 */
-.result {
-  width: 90%;
-  max-width: 500rpx;
-  background: var(--card-bg);
-  border-left: 8rpx solid var(--primary);
-  padding: 30rpx;
-  margin-top: 30rpx;
-  border-radius: 24rpx;
-  box-shadow: var(--shadow-light);
-  font-size: 28rpx;
-  color: var(--text-dark);
-  line-height: 1.7;
-  position: relative;
-}
-.result text:first-child {
-  font-weight: bold;
-  display: block;
-  margin-bottom: 16rpx;
-  font-size: 30rpx;
-  color: var(--primary-dark);
-}
-
-/* 按钮组样式 */
-.button-group {
-  width: 90%;
-  max-width: 500rpx;
-  display: flex;
   justify-content: space-between;
-  gap: 24rpx;
-  margin-top: 40rpx;
+  margin-bottom: 36rpx;
+  padding-top: 60rpx;
 }
 
-.button-group button {
-  flex: 1;
-  padding: 22rpx 0;
+.back-btn {
+  width: 72rpx;
+  height: 72rpx;
+  background: linear-gradient(135deg, #ffffff 0%, #fff8f0 100%);
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(255, 140, 66, 0.1), 0 2rpx 8rpx rgba(0,0,0,0.04);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.back-btn:active {
+  transform: scale(0.92);
+  box-shadow: 0 4rpx 12rpx rgba(255, 140, 66, 0.15);
+}
+
+.back-icon {
+  font-size: 44rpx;
+  color: #FF8C42;
+  font-weight: 600;
+}
+
+.nav-title {
+  font-size: 38rpx;
+  font-weight: 700;
+  background: linear-gradient(135deg, #EF6C3E 0%, #F5A65B 50%, #FFB347 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+
+.right-placeholder {
+  width: 72rpx;
+}
+
+.image-section {
+  width: 100%;
+  margin-bottom: 40rpx;
+}
+
+.image-card {
+  position: relative;
+  width: 100%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255, 248, 240, 0.95) 100%);
+  border-radius: 32rpx;
+  overflow: hidden;
+  box-shadow: 0 24rpx 48rpx -16rpx rgba(255, 140, 66, 0.12), 0 8rpx 20rpx rgba(0,0,0,0.06);
+  border: 2px solid rgba(255, 245, 230, 0.9);
+}
+
+.preview-img {
+  width: 100%;
+  height: 420rpx;
+  object-fit: cover;
+  display: block;
+}
+
+.image-badge {
+  position: absolute;
+  bottom: 24rpx;
+  right: 24rpx;
+  background: linear-gradient(135deg, rgba(255, 140, 66, 0.95) 0%, rgba(255, 110, 97, 0.95) 100%);
+  backdrop-filter: blur(8px);
+  padding: 12rpx 24rpx;
+  border-radius: 48rpx;
+  color: white;
   font-size: 26rpx;
   font-weight: 600;
-  color: var(--primary);
-  background: var(--card-bg);
-  border: 2rpx solid var(--primary);
-  border-radius: 28rpx;
-  text-align: center;
-  box-shadow: var(--shadow-light);
-  transition: background 0.2s ease;
-}
-.button-group button:active {
-  background-color: var(--primary-light);
+  box-shadow: 0 4rpx 12rpx rgba(255, 110, 97, 0.3);
 }
 
-/* 评分卡片 */
+.placeholder-section {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255, 248, 240, 0.95) 100%);
+  border-radius: 32rpx;
+  padding: 80rpx 32rpx;
+  margin-bottom: 40rpx;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 245, 230, 0.6);
+  box-shadow: 0 12rpx 28rpx -8rpx rgba(0,0,0,0.04);
+}
+
+.camera-icon {
+  font-size: 100rpx;
+  margin-bottom: 28rpx;
+  color: #FFAD7A;
+  animation: breathe 2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.placeholder-text {
+  font-size: 32rpx;
+  color: #5B6E8C;
+  font-weight: 500;
+  margin-bottom: 16rpx;
+}
+
+.placeholder-hint {
+  font-size: 26rpx;
+  color: #9CA8B8;
+}
+
 .score-card {
-  margin-top: 20rpx;
-  width: 90%;
-  max-width: 500rpx;
-  background: var(--card-bg);
-  border-left: 8rpx solid var(--primary);
-  padding: 30rpx 40rpx;
-  border-radius: 24rpx;
-  box-shadow: var(--shadow);
+  width: 100%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255, 248, 240, 0.96) 100%);
+  border-radius: 32rpx;
+  padding: 40rpx 32rpx;
+  margin-bottom: 28rpx;
+  text-align: center;
+  box-shadow: 0 20rpx 48rpx -16rpx rgba(255, 140, 66, 0.08), 0 8rpx 20rpx rgba(0,0,0,0.04);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 245, 230, 0.6);
+}
+
+.score-label {
+  display: block;
+  font-size: 28rpx;
+  color: #9CA8B8;
+  margin-bottom: 20rpx;
+  letter-spacing: 1px;
+}
+
+.score-value-wrap {
   display: flex;
   align-items: baseline;
-  gap: 12rpx;
   justify-content: center;
+  gap: 8rpx;
 }
 
 .score-value {
-  font-size: 52rpx;
-  font-weight: 900;
-  color: var(--primary-dark);
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 80rpx;
+  font-weight: 800;
+  background: linear-gradient(135deg, #EF6C3E 0%, #F5A65B 50%, #FFB347 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   line-height: 1;
 }
 
 .score-total {
-  font-size: 28rpx;
-  color: var(--primary);
-  font-weight: 700;
-  padding-bottom: 6rpx;
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #FFAD7A;
 }
 
-</style>
+.advice-card {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255, 248, 240, 0.96) 100%);
+  border-radius: 32rpx;
+  padding: 40rpx;
+  margin-bottom: 40rpx;
+  box-shadow: 0 20rpx 48rpx -16rpx rgba(255, 140, 66, 0.08), 0 8rpx 20rpx rgba(0,0,0,0.04);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 245, 230, 0.6);
+}
 
+.advice-header {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 28rpx;
+}
+
+.advice-icon-wrap {
+  width: 64rpx;
+  height: 64rpx;
+  background: linear-gradient(135deg, #FFE4B8 0%, #FFD49A 100%);
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.advice-icon {
+  font-size: 36rpx;
+}
+
+.advice-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #2D3E50;
+}
+
+.advice-text {
+  font-size: 30rpx;
+  line-height: 1.7;
+  color: #5B6E8C;
+  text-align: justify;
+  background: rgba(255, 140, 66, 0.04);
+  padding: 24rpx;
+  border-radius: 20rpx;
+  border-left: 4rpx solid #FF8C42;
+}
+
+.button-group {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  margin-top: 12rpx;
+}
+
+button {
+  border: none;
+  border-radius: 48rpx;
+  padding: 32rpx 0;
+  font-size: 32rpx;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+.btn-icon {
+  font-size: 36rpx;
+}
+
+.btn-outline {
+  background: linear-gradient(135deg, #fff8f0 0%, #ffffff 100%);
+  border: 2rpx solid rgba(255, 140, 66, 0.3);
+  color: #FF8C42;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.02);
+}
+
+.btn-outline:active {
+  background: rgba(255, 140, 66, 0.06);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #FFB25B 0%, #FF7E5F 100%);
+  color: white;
+  box-shadow: 0 16rpx 32rpx -10rpx rgba(255, 110, 97, 0.35);
+}
+
+.btn-primary:active {
+  box-shadow: 0 8rpx 16rpx -6rpx rgba(255, 110, 97, 0.45);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+  color: white;
+  box-shadow: 0 12rpx 24rpx -8rpx rgba(59, 130, 246, 0.3);
+}
+
+.btn-secondary:active {
+  box-shadow: 0 6rpx 12rpx -4rpx rgba(59, 130, 246, 0.4);
+}
+
+.bottom-safe {
+  height: 60rpx;
+}
+
+/* 布局修正：所有 100% 宽卡片包含内边距，避免右侧溢出 */
+.container {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.nav-bar,
+.image-section,
+.placeholder-section,
+.score-card,
+.advice-card,
+.button-group {
+  width: 100%;
+}
+
+.back-btn,
+.right-placeholder {
+  flex: 0 0 72rpx;
+}
+
+.nav-title {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.placeholder-section,
+.score-card,
+.advice-card,
+button {
+  box-sizing: border-box;
+}
+
+.advice-text {
+  display: block;
+}
+</style>

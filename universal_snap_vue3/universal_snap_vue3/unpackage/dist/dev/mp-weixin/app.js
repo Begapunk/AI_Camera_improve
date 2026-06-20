@@ -10,7 +10,8 @@ if (!Math) {
   "./pages/environment/index.js";
   "./pages/template/index.js";
   "./pages/template/templateCollection.js";
-  "./pages/ar/index.js";
+  "./pages/profile/index.js";
+  "./pages/metro/index.js";
 }
 const _sfc_main = {
   onLaunch: function() {

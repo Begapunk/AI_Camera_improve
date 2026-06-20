@@ -134,7 +134,7 @@
 </template>
 
 <script>
-import { getBaseUrl } from '@/utils/request.js';
+import { smartAnalyzeApi } from '@/utils/request.js';
 
 export default {
   data() {
@@ -156,7 +156,6 @@ export default {
       realDistance: 0,
       hasHit: false, 
       
-      serverUrl: getBaseUrl(),
       lastAITime: 0,
       aiTimer: null,
       
@@ -514,7 +513,7 @@ export default {
         if (!this.isAuth) return;
         uni.createCameraContext().takePhoto({
           quality: 'high',
-          success: (res) => this.saveToAlbum(res.tempFilePath),
+          success: (res) => this.saveToAlbum(res.tempImagePath || res.tempFilePath),
           fail: () => uni.showToast({ title: '拍照失败', icon: 'none' })
         });
       } else {
@@ -549,17 +548,12 @@ export default {
 
     runAIAnalysis() {
       const successCb = (resPath) => {
-        uni.uploadFile({
-          url: `${this.serverUrl}/smart-analyze`,
-          filePath: resPath,
-          name: 'file',
-          formData: {
+        smartAnalyzeApi(resPath, {
             mode: this.smartMode || 'person',
             tilt_angle: this.displayRoll.toString()
-          },
-          success: (uploadRes) => {
-            try {
-              const result = JSON.parse(uploadRes.data);
+          })
+          .then((uploadRes) => {
+              const result = uploadRes.data;
               if (result.code === 200) {
                 this.aiMessage = result.data.advice;
                 
@@ -593,14 +587,15 @@ export default {
                   setTimeout(() => { this.isPerfect = false; }, 3000);
                 }
               }
-            } catch(e) {}
-          }
-        });
+          })
+          .catch(() => {
+            this.aiMessage = '网络异常';
+          });
       };
 
       if (this.radarMode === 'visual') {
         if (!this.isAuth) return;
-        uni.createCameraContext().takePhoto({ quality: 'low', success: (res) => successCb(res.tempFilePath) });
+        uni.createCameraContext().takePhoto({ quality: 'low', success: (res) => successCb(res.tempImagePath || res.tempFilePath) });
       } else {
         this._needSnapshot = true;
         this._snapshotCallback = (path) => { successCb(path); };
@@ -673,4 +668,64 @@ export default {
 .p-icon { font-size: 100rpx; margin-bottom: 40rpx; }
 .p-text { color: #888; margin-bottom: 50rpx; }
 .p-btn { background: #00ffcc; color: #000; font-weight: bold; padding: 0 60rpx; border-radius: 50rpx; }
+
+/* 布局修正：AR 底栏内容可换行/横滑，不再把视图挤偏 */
+.container {
+  width: 100%;
+  min-width: 0;
+}
+
+.camera-view {
+  min-height: 0;
+}
+
+.footer {
+  flex-shrink: 0;
+  height: auto;
+  min-height: 360rpx;
+  padding-left: 20rpx;
+  padding-right: 20rpx;
+  padding-bottom: env(safe-area-inset-bottom, 20rpx);
+}
+
+.mode-selector {
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  padding: 0 8rpx;
+}
+
+.mode-item {
+  flex: 1 1 150rpx;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.tools-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.tools-inner {
+  width: max-content;
+  min-width: 100%;
+  gap: 36rpx;
+  padding: 0 20rpx;
+}
+
+.btn {
+  flex: 0 0 128rpx;
+}
+
+.desc {
+  width: 128rpx;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-panel {
+  max-width: calc(100% - 80rpx);
+}
 </style>

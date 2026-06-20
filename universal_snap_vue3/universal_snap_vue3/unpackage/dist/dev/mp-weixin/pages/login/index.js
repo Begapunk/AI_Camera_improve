@@ -12,22 +12,17 @@ const _sfc_main = {
     const captchaImage = common_vendor.ref("");
     const captchaAnswer = common_vendor.ref("");
     const fetchCaptcha = () => {
-      common_vendor.index.request({
-        url: `${utils_request.getBaseUrl()}/api/captcha`,
-        method: "GET",
-        success: (res) => {
-          if (res.statusCode === 200 && res.data) {
-            captchaId.value = res.data.captcha_id;
-            captchaImage.value = res.data.captcha_image;
-            captchaAnswer.value = "";
-          }
-        },
-        fail: () => {
-          common_vendor.index.showToast({ title: "验证码加载失败", icon: "none" });
+      utils_request.fetchCaptchaApi().then((res) => {
+        if (res.statusCode === 200 && res.data) {
+          captchaId.value = res.data.captcha_id;
+          captchaImage.value = res.data.captcha_image;
+          captchaAnswer.value = "";
         }
+      }).catch(() => {
+        common_vendor.index.showToast({ title: "验证码加载失败", icon: "none" });
       });
     };
-    common_vendor.onMounted(() => {
+    common_vendor.onLoad(() => {
       fetchCaptcha();
     });
     async function onLogin() {
@@ -41,33 +36,27 @@ const _sfc_main = {
       }
       message.value = "";
       common_vendor.index.showLoading({ title: "登录中...", mask: true });
-      common_vendor.index.request({
-        url: `${utils_request.getBaseUrl()}/login`,
-        method: "POST",
-        data: {
-          username: username.value,
-          password: password.value,
-          captcha_id: captchaId.value,
-          captcha_answer: captchaAnswer.value
-        },
-        success: (res) => {
-          common_vendor.index.hideLoading();
-          if (res.statusCode === 200 && res.data.message) {
-            common_vendor.index.showToast({ title: "登录成功", icon: "success" });
-            common_vendor.index.setStorageSync("username", username.value);
-            setTimeout(() => {
-              common_vendor.index.redirectTo({ url: "/pages/home/index" });
-            }, 1e3);
-          } else {
-            fetchCaptcha();
-            message.value = res.data.error || res.data.message || "登录失败";
-          }
-        },
-        fail: () => {
-          common_vendor.index.hideLoading();
+      utils_request.loginApi({
+        username: username.value,
+        password: password.value,
+        captcha_id: captchaId.value,
+        captcha_answer: captchaAnswer.value
+      }).then((res) => {
+        common_vendor.index.hideLoading();
+        if (res.statusCode === 200 && res.data.message) {
+          common_vendor.index.showToast({ title: "登录成功", icon: "success" });
+          common_vendor.index.setStorageSync("username", username.value);
+          setTimeout(() => {
+            common_vendor.index.redirectTo({ url: "/pages/home/index" });
+          }, 1e3);
+        } else {
           fetchCaptcha();
-          message.value = "请求失败，请稍后重试";
+          message.value = res.data.error || res.data.message || "登录失败";
         }
+      }).catch(() => {
+        common_vendor.index.hideLoading();
+        fetchCaptcha();
+        message.value = "请求失败，请稍后重试";
       });
     }
     function takePhotoAndLogin() {
@@ -75,33 +64,28 @@ const _sfc_main = {
       ctx.takePhoto({
         quality: "high",
         success: (res) => {
+          const filePath = res.tempImagePath || res.tempFilePath;
           const fs = common_vendor.index.getFileSystemManager();
-          const base64Data = fs.readFileSync(res.tempFilePath, "base64");
+          const base64Data = fs.readFileSync(filePath, "base64");
           common_vendor.index.showLoading({ title: "正在识别身份...", mask: true });
-          common_vendor.index.request({
-            url: `${utils_request.getBaseUrl()}/login-face`,
-            method: "POST",
-            data: { face_data: base64Data },
-            success: (loginRes) => {
-              common_vendor.index.hideLoading();
-              if (loginRes.statusCode === 200 && loginRes.data.username) {
-                common_vendor.index.showToast({ title: "识别成功", icon: "success" });
-                common_vendor.index.setStorageSync("username", loginRes.data.username);
-                setTimeout(() => {
-                  common_vendor.index.redirectTo({ url: "/pages/home/index" });
-                }, 1e3);
-              } else {
-                common_vendor.index.showModal({
-                  title: "识别失败",
-                  content: loginRes.data.error || "未匹配到人脸信息",
-                  showCancel: false
-                });
-              }
-            },
-            fail: () => {
-              common_vendor.index.hideLoading();
-              common_vendor.index.showToast({ title: "网络请求失败", icon: "none" });
+          utils_request.loginFaceApi(base64Data).then((loginRes) => {
+            common_vendor.index.hideLoading();
+            if (loginRes.statusCode === 200 && loginRes.data.username) {
+              common_vendor.index.showToast({ title: "识别成功", icon: "success" });
+              common_vendor.index.setStorageSync("username", loginRes.data.username);
+              setTimeout(() => {
+                common_vendor.index.redirectTo({ url: "/pages/home/index" });
+              }, 1e3);
+            } else {
+              common_vendor.index.showModal({
+                title: "识别失败",
+                content: loginRes.data.error || "未匹配到人脸信息",
+                showCancel: false
+              });
             }
+          }).catch(() => {
+            common_vendor.index.hideLoading();
+            common_vendor.index.showToast({ title: "网络请求失败", icon: "none" });
           });
         },
         fail: () => {

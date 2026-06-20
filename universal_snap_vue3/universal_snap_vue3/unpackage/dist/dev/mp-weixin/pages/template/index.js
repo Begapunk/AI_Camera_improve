@@ -13,6 +13,9 @@ const _sfc_main = {
       const num = parseFloat(score.value);
       return isNaN(num) ? "" : num.toFixed(3);
     });
+    function goBack() {
+      common_vendor.index.navigateBack();
+    }
     function chooseImage() {
       common_vendor.index.chooseImage({
         count: 1,
@@ -47,25 +50,27 @@ const _sfc_main = {
     }
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: common_vendor.o(chooseImage),
+        a: common_vendor.o(goBack),
         b: imgSrc.value
       }, imgSrc.value ? {
         c: imgSrc.value
       } : {}, {
         d: score.value
-      }, score.value ? common_vendor.e({
-        e: score.value
       }, score.value ? {
-        f: common_vendor.t(formattedScore.value)
-      } : {}) : {}, {
-        g: advice.value
-      }, advice.value ? {
-        h: common_vendor.t(advice.value)
+        e: common_vendor.t(formattedScore.value)
       } : {}, {
+        f: advice.value
+      }, advice.value ? {
+        g: common_vendor.t(advice.value)
+      } : {}, {
+        h: common_vendor.o(chooseImage),
         i: imgSrc.value
       }, imgSrc.value ? {
-        j: common_vendor.o(($event) => submitTemplate(false)),
-        k: common_vendor.o(($event) => submitTemplate(true))
+        j: common_vendor.o(($event) => submitTemplate(false))
+      } : {}, {
+        k: imgSrc.value && score.value
+      }, imgSrc.value && score.value ? {
+        l: common_vendor.o(($event) => submitTemplate(true))
       } : {});
     };
   }

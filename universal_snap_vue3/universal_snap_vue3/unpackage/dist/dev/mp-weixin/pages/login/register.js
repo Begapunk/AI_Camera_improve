@@ -13,23 +13,17 @@ const _sfc_main = {
     const captchaImage = common_vendor.ref("");
     const captchaAnswer = common_vendor.ref("");
     const fetchCaptcha = () => {
-      common_vendor.index.request({
-        url: `${utils_request.getBaseUrl()}/api/captcha`,
-        // 动态地址
-        method: "GET",
-        success: (res) => {
-          if (res.statusCode === 200 && res.data) {
-            captchaId.value = res.data.captcha_id;
-            captchaImage.value = res.data.captcha_image;
-            captchaAnswer.value = "";
-          }
-        },
-        fail: () => {
-          common_vendor.index.showToast({ title: "验证码加载失败", icon: "none" });
+      utils_request.fetchCaptchaApi().then((res) => {
+        if (res.statusCode === 200 && res.data) {
+          captchaId.value = res.data.captcha_id;
+          captchaImage.value = res.data.captcha_image;
+          captchaAnswer.value = "";
         }
+      }).catch(() => {
+        common_vendor.index.showToast({ title: "验证码加载失败", icon: "none" });
       });
     };
-    common_vendor.onMounted(() => {
+    common_vendor.onLoad(() => {
       fetchCaptcha();
     });
     const showCamera = common_vendor.ref(false);
@@ -40,9 +34,10 @@ const _sfc_main = {
       ctx.takePhoto({
         quality: "high",
         success: (res) => {
-          facePreview.value = res.tempFilePath;
+          const filePath = res.tempImagePath || res.tempFilePath;
+          facePreview.value = filePath;
           const fs = common_vendor.index.getFileSystemManager();
-          faceBase64.value = fs.readFileSync(res.tempFilePath, "base64");
+          faceBase64.value = fs.readFileSync(filePath, "base64");
           showCamera.value = false;
           common_vendor.index.showToast({ title: "采集成功", icon: "success" });
         },
@@ -89,45 +84,38 @@ const _sfc_main = {
         passwordErrors.value.push("密码不应包含用户名");
       }
       if (passwordErrors.value.length > 0) {
-        message.value = "密码不符合要求";
+        message.value = "密码建议优化";
         return;
       }
       message.value = "";
       common_vendor.index.showLoading({ title: "注册中...", mask: true });
       try {
-        common_vendor.index.request({
-          url: `${utils_request.getBaseUrl()}/register`,
-          // 动态地址
-          method: "POST",
-          data: {
-            username: username.value,
-            password: password.value,
-            face_data: faceBase64.value,
-            captcha_id: captchaId.value,
-            captcha_answer: captchaAnswer.value
-          },
-          success: (res) => {
-            common_vendor.index.hideLoading();
-            if (res.statusCode === 200) {
-              common_vendor.index.showToast({ title: "注册成功", icon: "success" });
-              setTimeout(() => {
-                common_vendor.index.redirectTo({ url: "/pages/login/index" });
-              }, 1e3);
-            } else {
-              fetchCaptcha();
-              if (res.data.details && Array.isArray(res.data.details)) {
-                passwordErrors.value = res.data.details;
-                message.value = res.data.error || "验证失败";
-              } else {
-                message.value = res.data.error || res.data.message || "注册失败";
-              }
-            }
-          },
-          fail: () => {
-            common_vendor.index.hideLoading();
-            message.value = "连接服务器失败";
+        utils_request.registerApi({
+          username: username.value,
+          password: password.value,
+          face_data: faceBase64.value,
+          captcha_id: captchaId.value,
+          captcha_answer: captchaAnswer.value
+        }).then((res) => {
+          common_vendor.index.hideLoading();
+          if (res.statusCode === 200) {
+            common_vendor.index.showToast({ title: "注册成功", icon: "success" });
+            setTimeout(() => {
+              common_vendor.index.redirectTo({ url: "/pages/login/index" });
+            }, 1e3);
+          } else {
             fetchCaptcha();
+            if (res.data.details && Array.isArray(res.data.details)) {
+              passwordErrors.value = res.data.details;
+              message.value = res.data.error || "验证失败";
+            } else {
+              message.value = res.data.error || res.data.message || "注册失败";
+            }
           }
+        }).catch(() => {
+          common_vendor.index.hideLoading();
+          message.value = "连接服务器失败";
+          fetchCaptcha();
         });
       } catch (err) {
         common_vendor.index.hideLoading();

@@ -11,6 +11,9 @@ const _sfc_main = {
     this.loadTemplates();
   },
   methods: {
+    goBack() {
+      common_vendor.index.navigateBack();
+    },
     async loadTemplates() {
       try {
         const res = await utils_request.fetchTemplateList();
@@ -20,7 +23,7 @@ const _sfc_main = {
           common_vendor.index.showToast({ title: "加载失败", icon: "none" });
         }
       } catch (err) {
-        common_vendor.index.__f__("error", "at pages/template/templateCollection.vue:42", err);
+        common_vendor.index.__f__("error", "at pages/template/templateCollection.vue:65", err);
         common_vendor.index.showToast({ title: "请求出错", icon: "none" });
       }
     },
@@ -51,15 +54,18 @@ const _sfc_main = {
           common_vendor.index.showToast({ title: "删除失败", icon: "none" });
         }
       } catch (err) {
-        common_vendor.index.__f__("error", "at pages/template/templateCollection.vue:75", err);
+        common_vendor.index.__f__("error", "at pages/template/templateCollection.vue:98", err);
         common_vendor.index.showToast({ title: "删除出错", icon: "none" });
       }
     }
   }
 };
 function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
-  return {
-    a: common_vendor.f($data.templates, (item, index, i0) => {
+  return common_vendor.e({
+    a: common_vendor.o((...args) => $options.goBack && $options.goBack(...args)),
+    b: $data.templates.length > 0
+  }, $data.templates.length > 0 ? {
+    c: common_vendor.f($data.templates, (item, index, i0) => {
       return {
         a: item.imageUrl,
         b: common_vendor.o(($event) => $options.previewImage(index), index),
@@ -68,7 +74,7 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
         e: index
       };
     })
-  };
+  } : {});
 }
 const MiniProgramPage = /* @__PURE__ */ common_vendor._export_sfc(_sfc_main, [["render", _sfc_render], ["__scopeId", "data-v-5ef028ee"]]);
 wx.createPage(MiniProgramPage);

@@ -1,16 +1,17 @@
 <template>
   <view class="container">
-    <camera v-if="isAuth" :device-position="cameraPosition" :flash="flashMode" class="camera-view" @error="onCameraError">
-      
-<<<<<<< HEAD
+    <view class="camera-area">
+    <camera
+      v-if="isAuth"
+      :device-position="cameraPosition"
+      :flash="flashMode"
+      resolution="low"
+      class="camera-view"
+      @error="onCameraError"
+      :enable-detect="isLevelEnabled"
+    >
       <cover-view v-if="isPerfect" class="perfect-border"></cover-view>
 
-=======
-      <!-- 完美构图绿框特效 (当 AI 判定完美时触发) -->
-      <cover-view v-if="isPerfect" class="perfect-border"></cover-view>
-
-      <!-- 修复与升级：HUD 实时参数面板 (同时显示左右、前后角度与雷达测距) -->
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       <cover-view class="hud-panel" v-if="smartMode || isLevelEnabled">
         <cover-view class="hud-text">↔️ 左右倾角: {{ displayRoll }}°</cover-view>
         <cover-view class="hud-text">↕️ 前后俯仰: {{ displayPitch }}°</cover-view>
@@ -25,14 +26,14 @@
       </block>
 
       <block v-if="gridType === 'third'">
-        <cover-view class="grid-v" style="left: 25%; background: rgba(255,255,255,0.4);"></cover-view>
-        <cover-view class="grid-v" style="left: 50%; background: rgba(255,255,255,0.4);"></cover-view>
-        <cover-view class="grid-v" style="left: 75%; background: rgba(255,255,255,0.4);"></cover-view>
-        <cover-view class="grid-h" style="top: 25%; background: rgba(255,255,255,0.4);"></cover-view>
-        <cover-view class="grid-h" style="top: 50%; background: rgba(255,255,255,0.4);"></cover-view>
-        <cover-view class="grid-h" style="top: 75%; background: rgba(255,255,255,0.4);"></cover-view>
+        <cover-view class="grid-v" style="left: 25%;"></cover-view>
+        <cover-view class="grid-v" style="left: 50%;"></cover-view>
+        <cover-view class="grid-v" style="left: 75%;"></cover-view>
+        <cover-view class="grid-h" style="top: 25%;"></cover-view>
+        <cover-view class="grid-h" style="top: 50%;"></cover-view>
+        <cover-view class="grid-h" style="top: 75%;"></cover-view>
       </block>
-      
+
       <cover-view v-if="activeTemplate" class="template-box" :class="activeTemplate">
         <cover-view class="template-text">{{ templateName }}</cover-view>
       </cover-view>
@@ -49,31 +50,53 @@
         <cover-view 
           class="dynamic-line" 
           :class="{ 'line-leveled': isLeveled, 'line-flat': isFlat }"
-          :style="{ transform: 'rotate(' + tiltAngle + 'deg)' }"
+          :style="{ transform: levelLineTransform }"
         ></cover-view>
       </cover-view>
 
       <cover-view v-if="aiMessage" class="ai-bubble-wrap">
         <cover-view class="ai-bubble" :class="{'perfect-bubble': isPerfect}">
           <cover-view class="ai-text" :class="{'perfect-text': isPerfect}">
-            {{ isPerfect ? '✨' : (isSpeaking ? '🔊' : (isAnalyzing ? '⌛' : (grokRunning ? '🧠' : '🤖'))) }} {{ aiMessage }}
+            {{ isPerfect ? '✨' : (isSpeaking ? '🔊' : (isAnalyzing ? '⌛' : (grokRunning ? '🌐' : '🧠'))) }} {{ aiMessage }}
           </cover-view>
         </cover-view>
       </cover-view>
     </camera>
 
-    <view v-else class="permission-box">
-      <text class="p-text">相机未授权</text>
-      <button class="p-btn" @tap="openSettings">去设置开启权限</button>
+    <!-- Canvas 叠加层：专业模式 or 独立骨骼追踪时显示 -->
+    <canvas
+      v-if="proMode || skeletonMode"
+      type="2d"
+      id="proCanvas"
+      class="pro-canvas-overlay"
+    ></canvas>
+
+    <!-- 专业模式：一键分析触发按钮（悬浮在取景框右上角） -->
+    <view v-if="proMode" class="pro-trigger-btn" @tap="triggerProAnalysis">
+      <text class="pro-trigger-icon">{{ proAnalyzing ? '⌛' : '🎯' }}</text>
+      <text class="pro-trigger-text">{{ proAnalyzing ? '分析中' : '分析场景' }}</text>
+    </view>
+
+    </view><!-- /camera-area -->
+
+    <view v-if="!isAuth" class="permission-box" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:100;">
+      <view class="permission-content">
+        <view class="permission-icon">📸</view>
+        <text class="p-text">需要相机权限才能使用自拍功能</text>
+        <button class="p-btn" @tap="openSettings">授权相机</button>
+      </view>
     </view>
 
     <view class="footer">
-      <view class="mode-selector">
-        <text class="mode-item" :class="{active: smartMode === 'person'}" @tap="setSmartMode('person')">👤 拍人</text>
-        <text class="mode-item" :class="{active: smartMode === 'object'}" @tap="setSmartMode('object')">🍎 拍物</text>
-        <text class="mode-item" :class="{active: smartMode === 'scenery'}" @tap="setSmartMode('scenery')">🏔️ 拍景</text>
-        <text class="mode-item" :class="{active: smartMode === ''}" @tap="setSmartMode('')">🚫 自由</text>
-      </view>
+      <scroll-view class="mode-selector" scroll-x :show-scrollbar="false">
+        <view class="mode-inner">
+          <text class="mode-item" :class="{active: smartMode === 'person'}" @tap="setSmartMode('person')">👤 拍人</text>
+          <text class="mode-item" :class="{active: smartMode === 'object'}" @tap="setSmartMode('object')">🍎 拍物</text>
+          <text class="mode-item" :class="{active: smartMode === 'scenery'}" @tap="setSmartMode('scenery')">🏔️ 拍景</text>
+          <text class="mode-item" :class="{active: smartMode === ''}" @tap="setSmartMode('')">🚫 自由</text>
+          <text class="mode-item pro-mode-item" :class="{active: proMode}" @tap="toggleProMode">🔬 专业</text>
+        </view>
+      </scroll-view>
 
       <scroll-view class="tools-scroll" scroll-x="true" :show-scrollbar="false">
         <view class="tools-inner">
@@ -106,10 +129,15 @@
           </view>
 
           <view class="btn" @tap="toggleLevel">
-            <text class="emoji">{{ isLevelEnabled ? '🟢' : '⚪' }}</text>
+            <text class="emoji">{{ isLevelEnabled ? '⚖️' : '⚪' }}</text>
             <text class="desc">水平仪</text>
           </view>
           
+          <view class="btn" @tap="toggleSkeletonMode">
+            <text class="emoji">{{ skeletonMode ? '🟢' : '🦴' }}</text>
+            <text class="desc">骨骼追踪</text>
+          </view>
+
           <view class="btn" @tap="showIpConfig">
             <text class="emoji">⚙️</text>
             <text class="desc">配置</text>
@@ -128,9 +156,9 @@
       <view class="panel" @tap.stop>
         <view class="panel-header">辅助线</view>
         <view class="grid-row">
-          <view class="tag" :class="{active: gridType==='none'}" @tap="setGrid('none')">无</view>
-          <view class="tag" :class="{active: gridType==='nine'}" @tap="setGrid('nine')">九宫格</view>
-          <view class="tag" :class="{active: gridType==='third'}" @tap="setGrid('third')">细分网格</view>
+          <view class="tag" :class="{ active: gridType === 'none' }" @tap="setGrid('none')">无</view>
+          <view class="tag" :class="{ active: gridType === 'nine' }" @tap="setGrid('nine')">九宫格</view>
+          <view class="tag" :class="{ active: gridType === 'third' }" @tap="setGrid('third')">细分网格</view>
         </view>
         <view class="panel-header">模板</view>
         <view class="template-list">
@@ -146,64 +174,205 @@
 </template>
 
 <script>
-import { getBaseUrl, setBaseUrl } from '@/utils/request.js'; 
+import {
+  analyzeApi,
+  detectPoseApi,
+  generateSketchApi,
+  getBaseUrl,
+  grokAnalyzeApi,
+  proAnalyzeApi,
+  setBaseUrl,
+  smartAnalyzeApi
+} from '@/utils/request.js';
+
+// ====== 骨架追踪：模块级非响应式变量 ======
+// ★ 严禁移入 data()！Vue Proxy 会拦截每次写入，每帧必卡 ★
+
+let _isDetecting = false     // 推理异步硬锁（规则2核心）
+let _frameListener = null    // onCameraFrame 监听器句柄（规则4清理用）
+let _lastInferTs = 0         // 节流时间戳（双重保险）
+const _INFER_INTERVAL = 200  // 5fps = 200ms
+
+// COCO-17 索引 → 名称（匹配 Qwen target_keypoints 字段）
+const _KP_NAMES = [
+  'nose','left_eye','right_eye','left_ear','right_ear',
+  'left_shoulder','right_shoulder','left_elbow','right_elbow',
+  'left_wrist','right_wrist','left_hip','right_hip',
+  'left_knee','right_knee','left_ankle','right_ankle'
+]
+
+// ── 骨架拓扑（COCO-17 主体 + MediaPipe-33 手部末端放射线）────────
+// side: 'L'=左半身(青蓝) | 'R'=右半身(橙黄) | 'C'=主干(白)
+// 手部射线（indices 17-22）在 COCO-17 模型下因关键点缺失自动跳过，
+// 切换到 MediaPipe-33/YOLOv8-wholebody 后即刻生效，无需修改绘制代码。
+const _SKELETON_PAIRS = [
+  // 头部
+  { a:  0, b:  1, side: 'L' },  // 鼻-左眼
+  { a:  0, b:  2, side: 'R' },  // 鼻-右眼
+  { a:  1, b:  3, side: 'L' },  // 左眼-左耳
+  { a:  2, b:  4, side: 'R' },  // 右眼-右耳
+  // 主干
+  { a:  5, b:  6, side: 'C' },  // 左肩-右肩
+  { a: 11, b: 12, side: 'C' },  // 左髋-右髋
+  { a:  5, b: 11, side: 'L' },  // 左肩-左髋
+  { a:  6, b: 12, side: 'R' },  // 右肩-右髋
+  // 左臂
+  { a:  5, b:  7, side: 'L' },  // 左肩-左肘
+  { a:  7, b:  9, side: 'L' },  // 左肘-左腕
+  // 右臂
+  { a:  6, b:  8, side: 'R' },  // 右肩-右肘
+  { a:  8, b: 10, side: 'R' },  // 右肘-右腕
+  // 左腿
+  { a: 11, b: 13, side: 'L' },  // 左髋-左膝
+  { a: 13, b: 15, side: 'L' },  // 左膝-左踝
+  // 右腿
+  { a: 12, b: 14, side: 'R' },  // 右髋-右膝
+  { a: 14, b: 16, side: 'R' },  // 右膝-右踝
+  // 左手放射线（MediaPipe-33: 17=left_pinky 19=left_index 21=left_thumb）
+  { a:  9, b: 17, side: 'L' },  // 左腕-左小拇指
+  { a:  9, b: 19, side: 'L' },  // 左腕-左食指
+  { a:  9, b: 21, side: 'L' },  // 左腕-左拇指
+  // 右手放射线（MediaPipe-33: 18=right_pinky 20=right_index 22=right_thumb）
+  { a: 10, b: 18, side: 'R' },  // 右腕-右小拇指
+  { a: 10, b: 20, side: 'R' },  // 右腕-右食指
+  { a: 10, b: 22, side: 'R' },  // 右腕-右拇指
+]
+
+// 极客科技感配色
+const _COLORS = { L: '#00FFFF', R: '#FF8C42', C: '#FFFFFF' }
+
+// 关键点索引 → 色组（模块级，避免每帧重建 Set）
+const _KP_SIDE = (() => {
+  const m = {}
+  ;[1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21].forEach(i => (m[i] = 'L'))
+  ;[2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22].forEach(i => (m[i] = 'R'))
+  return m
+})()
+
+// ── 火柴人骨架绘制（纯原生 Canvas，零 Vue 响应式调用）───────────
+// keypoints : [{x, y, score?}, ...]（坐标已归一化 0~1，对应 _KP_NAMES 索引）
+// W / H     : Canvas 像素尺寸
+function _drawSkeleton(ctx, keypoints, W, H) {
+  const MIN_SCORE = 0.3
+  const ok = (kp) => kp != null && (kp.score ?? 1) >= MIN_SCORE
+
+  // ── 第一层：骨骼连线（带霓虹发光描边）──────────────────────────
+  _SKELETON_PAIRS.forEach(({ a, b, side }) => {
+    const ka = keypoints[a]
+    const kb = keypoints[b]
+    if (!ok(ka) || !ok(kb)) return
+
+    const color = _COLORS[side]
+    ctx.beginPath()
+    ctx.moveTo(ka.x * W, ka.y * H)
+    ctx.lineTo(kb.x * W, kb.y * H)
+    ctx.strokeStyle = color
+    ctx.globalAlpha = 0.78
+    ctx.lineWidth = side === 'C' ? 2.5 : 2
+    ctx.lineCap = 'round'
+    ctx.shadowColor = color
+    ctx.shadowBlur = 9
+    ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.globalAlpha = 1
+  })
+
+  // ── 第二层：关节节点（实心圆 + 白色描边，鼻子略大标示头部朝向）─
+  keypoints.forEach((kp, i) => {
+    if (!ok(kp) || i > 22) return
+
+    const side = _KP_SIDE[i] ?? 'C'
+    const color = _COLORS[side]
+    const x = kp.x * W
+    const y = kp.y * H
+    const r = i === 0 ? 7 : 5   // 鼻子节点 r=7，其余 r=5
+
+    ctx.beginPath()
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.fillStyle = color
+    ctx.shadowColor = color
+    ctx.shadowBlur = 14
+    ctx.fill()
+    ctx.shadowBlur = 0
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+    ctx.lineWidth = 1.2
+    ctx.stroke()
+  })
+}
 
 export default {
   data() {
     return {
+      username: '', 
+      
+      // 相机状态
       cameraPosition: 'back',
       isAuth: false,
       flashMode: 'off',
-      gridType: 'none',
+      gridType: 'nine',
       activeTemplate: '',
       templateName: '',
       customSketchUrl: '',
       showTemplates: false,
       
+      // AI分析与模式
       smartMode: '',
       isPerfect: false,
       aiRunning: false,
       aiTimer: null,
-      
-<<<<<<< HEAD
-=======
-      // 【新增】存储 AI 绝对估算的距离，若为空则前端自己算
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
-      aiEstimatedDistance: null, 
-      
+      aiEstimatedDistance: null,
+      aiFailCount: 0,
+
       grokRunning: false,
       grokTimer: null,
+      grokFailCount: 0,
       isAudioEnabled: false,
-      isAnalyzing: false, 
+      isAnalyzing: false,
       isSpeaking: false,
       aiMessage: '',
       
-<<<<<<< HEAD
+      // 水平仪与传感器状态
       isLevelEnabled: false, 
-      tiltAngle: 0,          
+      tiltAngle: 0,           
+      levelLineTransform: 'rotate(0deg)',
       smoothedAngle: 0,      
       lastRawAngle: 0, 
 
-      pitchAngle: 0,         
-=======
-      // 传感器与水平仪状态
-      isLevelEnabled: false, 
-      tiltAngle: 0,          // 左右倾角 (Roll)
-      smoothedAngle: 0,      
-      lastRawAngle: 0, 
-
-      // 【新增】前后俯仰角状态
-      pitchAngle: 0,         // 前后俯仰角 (Pitch)
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
+      pitchAngle: 0,          
       smoothedPitch: 0,
       lastRawPitch: 0,
             
       isLeveled: false, 
-      isFlat: false,         
-      lastVibrateTime: 0,    
+      isFlat: false,          
+      lastVibrateTime: 0,
+      levelCallback: null,
+      levelFrameId: null,
+      levelFrameApi: null,
+      levelSensorFrame: null,
+      levelLastRenderAngle: 0,
       
-      serverUrl: getBaseUrl(), 
-      audioContext: null
+      smX: undefined,
+      smY: undefined,
+      smZ: undefined,
+      
+      // 系统
+      audioContext: null,
+      serverUrl: '',
+
+      // 专业模式
+      proMode: false,
+      proAnalyzing: false,
+      proPlan: null,              // Qwen 下发的拍摄方案 JSON
+      proVKSession: null,         // 保留字段（兼容旧引用，新架构不再使用）
+      proCanvasNode: null,        // canvas 2d node
+      proCanvasCtx: null,         // canvas 2d context
+      proCanvasWidth: 0,
+      proCanvasHeight: 0,
+      // 注意：proActualKeypoints 已移至非响应式实例变量 this._proKps
+      // 避免 VKSession 每帧写入触发 Vue diff 造成卡顿
+
+      // 独立骨骼追踪模式
+      skeletonMode: false
     };
   },
   computed: {
@@ -211,7 +380,6 @@ export default {
       const map = { 'off': '关', 'on': '开', 'torch': '常亮' };
       return map[this.flashMode];
     },
-<<<<<<< HEAD
     displayRoll() {
       return Math.round(this.tiltAngle || 0);
     },
@@ -222,59 +390,26 @@ export default {
       if (this.aiEstimatedDistance) return this.aiEstimatedDistance;
       
       const p = this.pitchAngle;
-      
       if (p < -2) return "仰角 (高处物体)";
       if (p >= -2 && p <= 2) return "> 10m (平视)";
       
       const HAND_HEIGHT = 1.4; 
       const theta = p * (Math.PI / 180);
-      
-      // 【修复】防御极端情况下的除以零报错
-      if (theta === 0) return "> 10m (平视)";
-      
-      // 【修复】加上绝对值，确保求出的距离是正数
-      let dist = Math.abs(HAND_HEIGHT / Math.tan(theta));
-      
-      if (dist > 15) return "> 15m"; 
-=======
-    // 将左右倾角格式化绑定到视图
-    displayRoll() {
-      return Math.round(this.tiltAngle || 0);
-    },
-    // 将前后俯仰角格式化绑定到视图
-    displayPitch() {
-      return Math.round(this.pitchAngle || 0);
-    },
-    // 【核心黑魔法】：实时雷达三角测距 (已修复正负号 Bug)
-    estimatedDistanceDisplay() {
-      // 1. 如果 AI 大脑返回了基于主体的确切物理距离，优先用 AI 的
-      if (this.aiEstimatedDistance) return this.aiEstimatedDistance;
-      
-      // 2. 如果 AI 还没返回，或者断网了，启动前端本地三角测距引擎
-      const p = this.pitchAngle;
-      
-      // 【修复】之前正负号反了。p < 0 才是手机屏幕朝天（仰拍）
-      if (p < -2) return "仰角 (高处物体)";
-      
-      // 如果手机平视前方
-      if (p >= -2 && p <= 2) return "> 10m (平视)";
-      
-      // 【修复】p > 2 说明手机向下倾斜拍物体（如拍地板上的小猫），此时可测距！
-      // 假设成人的标准手持高度为 1.4 米
-      const HAND_HEIGHT = 1.4; 
-      // 角度转弧度
-      const theta = p * (Math.PI / 180);
-      // 利用正切定理：距离 = 高度 / tan(下倾角)
       let dist = HAND_HEIGHT / Math.tan(theta);
       
-      if (dist > 15) return "> 15m"; // 超过 15 米误差极大，失去意义
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
+      if (dist > 15) return "> 15m"; 
       return dist.toFixed(2) + "m";
     }
   },
   onLoad() {
+    this.serverUrl = getBaseUrl();
     this.initCamera();
     this.initAudioContext();
+    // 非响应式实例变量（每帧写入但不触发 Vue re-render）
+    this._proKps = {};         // name-keyed 关键点，供 _buildProGuideText 和 _drawProOverlay 读取
+    this._smoothedKps = {};    // EMA 平滑缓冲（key = COCO-17 索引）
+    this._proHudTs = 0;        // HUD 文字限流时间戳
+    // _poseDetector 已由后端 /detect-pose 接口替代，无需前端模型实例
   },
   onShow() {
     if (this.isLevelEnabled) {
@@ -282,39 +417,21 @@ export default {
     }
   },
   onHide() {
-<<<<<<< HEAD
-    // 【修复】切后台时关闭传感器和所有轮询定时器，防止导致微信崩溃或内存泄露
     this.stopLevelSensor();
-    if (this.aiRunning) this.stopAI();
-    if (this.grokRunning) this.stopGrok();
-=======
-    this.stopLevelSensor();
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
   },
   onUnload() {
     this.stopAI();
     this.stopGrok();
     this.stopLevelSensor();
-<<<<<<< HEAD
-    
-    // 【修复】页面卸载时彻底销毁音频上下文，释放内存
-    if (this.audioContext) {
-      this.audioContext.stop();
-      this.audioContext.destroy();
-      this.audioContext = null;
-    }
-=======
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
+    this._stopProMode();
+    this._stopSkeletonMode();
   },
   methods: {
+    // === 拍摄模式选择 ===
     setSmartMode(mode) {
       if (this.smartMode === mode) return; 
       this.smartMode = mode;
-<<<<<<< HEAD
       this.aiEstimatedDistance = null; 
-=======
-      this.aiEstimatedDistance = null; // 切换模式时清空 AI 距离，交回给前端实时测算
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       
       if (mode === '') {
         uni.showToast({ title: '自由拍摄模式', icon: 'none' });
@@ -332,9 +449,11 @@ export default {
       }
     },
 
+    // === 传感器与水平仪功能 ===
     toggleLevel() {
       this.isLevelEnabled = !this.isLevelEnabled;
       if (this.isLevelEnabled) {
+        this.smX = undefined;
         this.startLevelSensor();
       } else {
         this.stopLevelSensor();
@@ -342,85 +461,117 @@ export default {
         this.isFlat = false;
         this.tiltAngle = 0;
         this.smoothedAngle = 0;
-        this.lastRawAngle = 0;
         this.pitchAngle = 0;
         this.smoothedPitch = 0;
-        this.lastRawPitch = 0;
+        this.levelLineTransform = 'rotate(0deg)';
       }
     },
     
     startLevelSensor() {
+      this.levelFrameApi = typeof wx !== 'undefined' ? wx : uni;
+      this.levelSensorFrame = null;
+      if (!this.levelCallback || this.levelCallback._rafVersion !== true) {
+        this.levelCallback = (res) => { this.levelSensorFrame = res; };
+        this.levelCallback._rafVersion = true;
+      }
       uni.startAccelerometer({
         interval: 'ui', 
         success: () => {
-          uni.onAccelerometerChange((res) => {
-            if (Math.abs(res.z) > 0.85) {
-              this.isFlat = true;
-              this.isLeveled = false;
-              return; 
-            } else {
-              this.isFlat = false;
-            }
-
-<<<<<<< HEAD
-            let rawAngle = Math.atan2(res.x, -res.y) * (180 / Math.PI);
-            let rawPitch = Math.atan2(res.z, -res.y) * (180 / Math.PI);
-
-=======
-            // 计算原有的左右倾角 (Roll)
-            let rawAngle = Math.atan2(res.x, -res.y) * (180 / Math.PI);
-            // 【新增】计算前后俯仰角 (Pitch)
-            let rawPitch = Math.atan2(res.z, -res.y) * (180 / Math.PI);
-
-            // ================= 左右倾角平滑处理 =================
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
-            let delta = rawAngle - this.lastRawAngle;
-            if (delta > 180) rawAngle -= 360;
-            else if (delta < -180) rawAngle += 360;
-            this.lastRawAngle = rawAngle;
-            this.smoothedAngle = this.smoothedAngle + (rawAngle - this.smoothedAngle) * 0.08;
-
-<<<<<<< HEAD
-=======
-            // ================= 前后俯仰角平滑处理 =================
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
-            let deltaPitch = rawPitch - this.lastRawPitch;
-            if (deltaPitch > 180) rawPitch -= 360;
-            else if (deltaPitch < -180) rawPitch += 360;
-            this.lastRawPitch = rawPitch;
-            this.smoothedPitch = this.smoothedPitch + (rawPitch - this.smoothedPitch) * 0.08;
-            this.pitchAngle = this.smoothedPitch;
-
-<<<<<<< HEAD
-=======
-            // ================= 水平仪磁吸死区判定 (基于 Roll) =================
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
-            const targetAngle = Math.round(this.smoothedAngle / 90) * 90;
-            const diff = Math.abs(this.smoothedAngle - targetAngle);
-
-            if (diff < 3.5) {
-              if (!this.isLeveled) {
-                this.isLeveled = true;
-                const now = Date.now();
-                if (now - this.lastVibrateTime > 1000) {
-                  uni.vibrateShort();
-                  this.lastVibrateTime = now;
-                }
-              }
-              this.tiltAngle = -targetAngle; 
-            } else {
-              this.isLeveled = false;
-              this.tiltAngle = -this.smoothedAngle;
-            }
-          });
+          uni.offAccelerometerChange(this.levelCallback);
+          uni.onAccelerometerChange(this.levelCallback);
+          this.startLevelFrameLoop();
         },
         fail: (err) => { console.log("传感器启动失败", err); }
       });
     },
+
     stopLevelSensor() {
+      if (this.levelCallback) uni.offAccelerometerChange(this.levelCallback);
+      if (this.levelFrameId) {
+        if (this.levelFrameApi && this.levelFrameApi.cancelAnimationFrame) {
+          this.levelFrameApi.cancelAnimationFrame(this.levelFrameId);
+        } else {
+          clearTimeout(this.levelFrameId);
+        }
+        this.levelFrameId = null;
+      }
+      this.levelSensorFrame = null;
       uni.stopAccelerometer();
     },
 
+    startLevelFrameLoop() {
+      if (this.levelFrameId) return;
+      const requestFrame = (callback) => {
+        if (this.levelFrameApi && this.levelFrameApi.requestAnimationFrame) {
+          return this.levelFrameApi.requestAnimationFrame(callback);
+        }
+        return setTimeout(callback, 16);
+      };
+      const tick = () => {
+        if (!this.isLevelEnabled) return;
+        this.updateLevelFrame();
+        this.levelFrameId = requestFrame(tick);
+      };
+      this.levelFrameId = requestFrame(tick);
+    },
+
+    updateLevelFrame() {
+      const res = this.levelSensorFrame;
+      if (!res) return;
+
+      // 1. 三轴低通滤波 (过滤手部抖动)
+      if (typeof this.smX === 'undefined') {
+        this.smX = res.x; this.smY = res.y; this.smZ = res.z;
+        this.smoothedAngle = Math.atan2(this.smX, -this.smY) * (180 / Math.PI);
+        this.smoothedPitch = Math.asin(Math.max(-1, Math.min(1, this.smZ))) * (180 / Math.PI);
+      }
+      this.smX = this.smX * 0.85 + res.x * 0.15;
+      this.smY = this.smY * 0.85 + res.y * 0.15;
+      this.smZ = this.smZ * 0.85 + res.z * 0.15;
+
+      // 2. 检测平放状态 (防止万向节死锁)
+      if (Math.abs(this.smZ) > 0.85) {
+        if (!this.isFlat) this.isFlat = true;
+        if (this.isLeveled) this.isLeveled = false;
+        return; 
+      }
+      if (this.isFlat) this.isFlat = false;
+
+      // 3. 计算偏航角 (Roll) 并处理 360° 跳变
+      let targetAngle = Math.atan2(this.smX, -this.smY) * (180 / Math.PI);
+      let diff = targetAngle - this.smoothedAngle;
+      while (diff <= -180) diff += 360;
+      while (diff > 180) diff -= 360;
+      this.smoothedAngle += diff * 0.12;
+
+      // 4. 俯仰角 (Pitch)
+      let targetPitch = Math.asin(Math.max(-1, Math.min(1, this.smZ))) * (180 / Math.PI);
+      this.smoothedPitch += (targetPitch - this.smoothedPitch) * 0.12;
+      this.pitchAngle = this.smoothedPitch;
+
+      // 5. 磁吸吸附逻辑
+      const snapped = Math.round(this.smoothedAngle / 90) * 90;
+      const snapDiff = Math.abs(this.smoothedAngle - snapped);
+      const nextLeveled = snapDiff < 3.5;
+      const nextAngle = nextLeveled ? -snapped : -this.smoothedAngle;
+
+      if (nextLeveled && !this.isLeveled) {
+        const now = Date.now();
+        if (now - this.lastVibrateTime > 1000) {
+          uni.vibrateShort();
+          this.lastVibrateTime = now;
+        }
+      }
+      if (this.isLeveled !== nextLeveled) this.isLeveled = nextLeveled;
+      
+      if (Math.abs(nextAngle - this.levelLastRenderAngle) > 0.1) {
+        this.levelLastRenderAngle = nextAngle;
+        this.tiltAngle = nextAngle;
+        this.levelLineTransform = `rotate(${nextAngle}deg)`;
+      }
+    },
+
+    // === 其他功能保持不变 ===
     chooseAndUploadSketch() {
       uni.chooseMedia({
         count: 1,
@@ -430,34 +581,26 @@ export default {
           const filePath = res.tempFiles[0].tempFilePath;
           uni.showLoading({ title: '生成线稿中...' });
           
-          uni.uploadFile({
-            url: `${this.serverUrl}/generate-sketch`, 
-            filePath: filePath,
-            name: 'file',
-            success: (uploadRes) => {
+          generateSketchApi(filePath)
+            .then((uploadRes) => {
               uni.hideLoading();
               if (uploadRes.statusCode === 200) {
-                try {
-                  const data = JSON.parse(uploadRes.data);
-                  if (data.sketchUrl) {
-                    this.customSketchUrl = data.sketchUrl;
-                    this.activeTemplate = ''; 
-                    this.templateName = '';
-                    this.showTemplates = false; 
-                    uni.showToast({ title: '线稿已加载', icon: 'success' });
-                  }
-                } catch (e) {
-                  uni.showToast({ title: '解析失败', icon: 'none' });
+                const data = uploadRes.data;
+                if (data.sketchUrl) {
+                  this.customSketchUrl = data.sketchUrl;
+                  this.activeTemplate = ''; 
+                  this.templateName = '';
+                  this.showTemplates = false; 
+                  uni.showToast({ title: '线稿已加载', icon: 'success' });
                 }
               } else {
                 uni.showToast({ title: '生成失败', icon: 'none' });
               }
-            },
-            fail: () => {
+            })
+            .catch(() => {
               uni.hideLoading();
-              uni.showToast({ title: '上传失败', icon: 'none' });
-            }
-          });
+              uni.showToast({ title: '上传失败，请检查网络', icon: 'none' });
+            });
         }
       });
     },
@@ -475,14 +618,7 @@ export default {
       }
     },
     stopGrok() {
-<<<<<<< HEAD
-      if (this.grokTimer) {
-        clearInterval(this.grokTimer);
-        this.grokTimer = null;
-      }
-=======
       if (this.grokTimer) clearInterval(this.grokTimer);
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       this.grokRunning = false;
       if (!this.aiRunning) {
         this.aiMessage = '';
@@ -504,24 +640,24 @@ export default {
       });
     },
     uploadForGrok(filePath) {
-      uni.uploadFile({
-        url: `${this.serverUrl}/analyze-grok`,
-        filePath: filePath,
-        name: 'file',
-        success: (res) => {
+      grokAnalyzeApi(filePath)
+        .then((res) => {
           if (this.grokRunning && res.statusCode === 200) {
-            try {
-              const data = JSON.parse(res.data);
-              if (data.advice) this.aiMessage = `[Grok] ${data.advice}`;
-            } catch (e) { console.error("解析失败", e); }
+            const data = res.data;
+            if (data.advice) {
+              this.aiMessage = `[Grok] ${data.advice}`;
+              this.grokFailCount = 0;
+            }
           }
           this.isAnalyzing = false;
-        },
-        fail: () => {
-          if (this.grokRunning) this.aiMessage = "Grok 连接失败";
+        })
+        .catch(() => {
+          this.grokFailCount++;
+          if (this.grokRunning) {
+            this.aiMessage = this.grokFailCount >= 3 ? "Grok 连接中断，请检查网络" : "Grok 重连中...";
+          }
           this.isAnalyzing = false;
-        }
-      });
+        });
     },
 
     toggleAI() {
@@ -539,20 +675,11 @@ export default {
       }
     },
     stopAI() {
-<<<<<<< HEAD
-      if (this.aiTimer) {
-        clearInterval(this.aiTimer);
-        this.aiTimer = null;
-      }
-      this.aiRunning = false;
-      this.isPerfect = false;
-      this.aiEstimatedDistance = null; 
-=======
       if (this.aiTimer) clearInterval(this.aiTimer);
       this.aiRunning = false;
       this.isPerfect = false;
-      this.aiEstimatedDistance = null; // 关闭AI时清空距离测算
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
+      this.aiEstimatedDistance = null;
+      this.aiFailCount = 0;
       if (!this.grokRunning) {
           this.aiMessage = '';
           this.isAnalyzing = false;
@@ -577,87 +704,72 @@ export default {
     
     uploadForAI(filePath) {
       if (!this.smartMode) {
-        uni.uploadFile({
-          url: `${this.serverUrl}/analyze`,
-          filePath: filePath,
-          name: 'file',
-          formData: { 'need_audio': this.isAudioEnabled ? 'true' : 'false' },
-          success: (res) => {
+        analyzeApi(filePath, { need_audio: this.isAudioEnabled ? 'true' : 'false' })
+          .then((res) => {
             if (this.aiRunning && res.statusCode === 200) {
-              try {
-                const data = JSON.parse(res.data);
-                if (data.advice) {
-                  this.aiMessage = data.advice;
-                  if (this.isAudioEnabled && data.audioUrl) {
-                    this.playAudio(data.audioUrl);
-                  }
+              const data = res.data;
+              if (data.advice) {
+                this.aiMessage = data.advice;
+                this.aiFailCount = 0;
+                if (this.isAudioEnabled && data.audioUrl) {
+                  this.playAudio(data.audioUrl);
                 }
-              } catch (e) { console.error(e); }
+              }
             }
             this.isAnalyzing = false;
-          },
-          fail: () => {
-            if (this.aiRunning) this.aiMessage = "网络异常";
+          })
+          .catch(() => {
+            this.aiFailCount++;
+            if (this.aiRunning) {
+              this.aiMessage = this.aiFailCount >= 3 ? "网络持续中断，请检查连接" : "网络波动，重试中...";
+            }
             this.isAnalyzing = false;
-          }
-        });
+          });
         return;
       }
 
-      uni.uploadFile({
-<<<<<<< HEAD
-        // 注意：如果你后端的路由严格要求带斜杠，这里可能需要改为 /smart-analyze/ 以避免 308 重定向
-=======
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
-        url: `${this.serverUrl}/smart-analyze`,
-        filePath: filePath,
-        name: 'file',
-        formData: { 
-          'mode': this.smartMode,                           
-          'tilt_angle': Math.round(this.tiltAngle).toString() 
-        },
-        success: (res) => {
+      smartAnalyzeApi(filePath, {
+        mode: this.smartMode,
+        tilt_angle: Math.round(this.tiltAngle).toString()
+      })
+        .then((res) => {
           if (this.aiRunning && res.statusCode === 200) {
-            try {
-              const response = JSON.parse(res.data);
-              if (response.code === 200 && response.data) {
-                const aiData = response.data;
-                
-                if (aiData.is_perfect) {
-                  this.isPerfect = true;
-                  this.aiMessage = "完美构图！自动抓拍中...";
-                  uni.vibrateLong(); 
-                  this.takePhoto(); 
-                  
-                  setTimeout(() => {
-                    this.isPerfect = false;
-                    this.aiMessage = "抓拍完成！";
-                  }, 3000);
-                } else {
-                  this.aiMessage = aiData.advice;
-                  if (this.isAudioEnabled && response.audioUrl) {
-                     this.playAudio(response.audioUrl);
-                  }
-                }
+            const response = res.data;
+            if (response.code === 200 && response.data) {
+              const aiData = response.data;
+              this.aiFailCount = 0;
 
-<<<<<<< HEAD
-=======
-                // 赋值 AI 后端返回的估算距离，将会自动覆盖本地的三角测距
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
-                if (aiData.subject_ratio) {
-                  this.aiEstimatedDistance = this.calculateDistance(aiData.subject_ratio);
-                }
+              if (aiData.is_perfect) {
+                this.isPerfect = true;
+                this.aiMessage = "完美构图！自动抓拍中...";
+                uni.vibrateLong();
+                this.takePhoto();
 
+                setTimeout(() => {
+                  this.isPerfect = false;
+                  this.aiMessage = "抓拍完成！";
+                }, 3000);
+              } else {
+                this.aiMessage = aiData.advice;
+                if (this.isAudioEnabled && response.audioUrl) {
+                  this.playAudio(response.audioUrl);
+                }
               }
-            } catch (e) { console.error(e); }
+
+              if (aiData.subject_ratio) {
+                this.aiEstimatedDistance = this.calculateDistance(aiData.subject_ratio);
+              }
+            }
           }
           this.isAnalyzing = false;
-        },
-        fail: () => {
-          if (this.aiRunning) this.aiMessage = "网络异常";
+        })
+        .catch(() => {
+          this.aiFailCount++;
+          if (this.aiRunning) {
+            this.aiMessage = this.aiFailCount >= 3 ? "网络持续中断，请检查连接" : "网络波动，重试中...";
+          }
           this.isAnalyzing = false;
-        }
-      });
+        });
     },
 
     switchCamera() {
@@ -699,20 +811,12 @@ export default {
     toggleAudio() {
       this.isAudioEnabled = !this.isAudioEnabled;
       if (!this.isAudioEnabled && this.isSpeaking) {
-<<<<<<< HEAD
-        if(this.audioContext) this.audioContext.stop();
-=======
         this.audioContext.stop();
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
         this.onAudioFinished();
       }
       uni.showToast({ title: this.isAudioEnabled ? '语音开启' : '语音关闭', icon: 'none' });
     },
     playAudio(url) {
-<<<<<<< HEAD
-      if (!this.audioContext) return;
-=======
->>>>>>> 81d4da75c3daf27c0adfc02367f12b771ad80e33
       this.isSpeaking = true;
       this.audioContext.src = url;
       this.audioContext.play();
@@ -740,17 +844,14 @@ export default {
       const modes = ['off', 'on', 'torch'];
       this.flashMode = modes[(modes.indexOf(this.flashMode) + 1) % 3];
     },
-
     calculateDistance(ratio) {
       if (!ratio || ratio <= 0) return '--';
-      let dist = (0.2 / ratio) * 1.5; 
+      let dist = (0.2 / ratio) * 1.5;
       if (dist > 10) return '> 10m';
       if (dist < 0.2) return '< 0.2m';
       return dist.toFixed(2) + 'm';
     },
-
     setGrid(t) { this.gridType = t; },
-    
     setTemplate(t) {
       this.activeTemplate = t;
       this.templateName = t === 'portrait' ? '人像' : t === 'food' ? '美食' : t === 'scenery' ? '风景' : '';
@@ -758,142 +859,957 @@ export default {
       this.showTemplates = false;
     },
     openSettings() { uni.openSetting(); },
-    onCameraError() { uni.showToast({ title: '相机异常', icon: 'none' }); }
+    onCameraError() { uni.showToast({ title: '相机异常', icon: 'none' }); },
+
+    // ================================================================
+    // 专业模式：三段流水线（PaliGemma→Qwen→VKSession）
+    // ================================================================
+
+    toggleProMode() {
+      this.proMode = !this.proMode;
+      if (this.proMode) {
+        // 专业模式与其他 AI 模式互斥
+        if (this.aiRunning) this.stopAI();
+        if (this.grokRunning) this.stopGrok();
+        this.aiMessage = '🔬 专业模式已开启 · 点击「分析场景」获取拍摄方案';
+        // 初始化 Canvas（需等组件渲染完成）
+        this.$nextTick(() => this._initProCanvas());
+      } else {
+        this._stopProMode();
+        this.aiMessage = '';
+      }
+    },
+
+    _stopProMode() {
+      this._stopBodyTracking();
+      this.proMode = false;
+      this.proPlan = null;
+      this.proAnalyzing = false;
+      this._proKps = {};
+      this.proCanvasCtx = null;
+      this.proCanvasNode = null;
+    },
+
+    // ── Stage 3a: 初始化 Canvas（type=2d，支持高 DPR） ──────────────
+    _initProCanvas() {
+      const query = uni.createSelectorQuery().in(this);
+      query.select('#proCanvas').fields({ node: true, size: true }).exec((res) => {
+        if (!res[0] || !res[0].node) return;
+        const canvas = res[0].node;
+        const dpr = (uni.getSystemInfoSync().pixelRatio) || 2;
+        this.proCanvasWidth = res[0].width;
+        this.proCanvasHeight = res[0].height;
+        canvas.width = Math.round(res[0].width * dpr);
+        canvas.height = Math.round(res[0].height * dpr);
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        this.proCanvasNode = canvas;
+        this.proCanvasCtx = ctx;
+      });
+    },
+
+    // ── Stage 1+2: 一键抓帧 → 发送后端 /pro-analyze ─────────────────
+    triggerProAnalysis() {
+      if (this.proAnalyzing) return;
+      const ctx = uni.createCameraContext();
+      ctx.takePhoto({
+        quality: 'normal',
+        success: (res) => {
+          const path = res.tempFilePath || res.tempImagePath;
+          if (!path) return;
+          this.proAnalyzing = true;
+          this.aiMessage = '⌛ PaliGemma 检测中...';
+
+          proAnalyzeApi(path, {
+            tilt_angle: this.tiltAngle.toFixed(2),
+            pitch_angle: this.pitchAngle.toFixed(2),
+            estimated_distance: this.aiEstimatedDistance || '未知',
+          }).then((res) => {
+            this.proAnalyzing = false;
+            if (res.statusCode !== 200 || !res.data?.data) {
+              this.aiMessage = `❌ 分析失败: ${res.data?.error || '请重试'}`;
+              return;
+            }
+            this.proPlan = res.data.data.plan;
+            const pg = res.data.data.paligemma_active ? '✅ PaliGemma+Qwen' : '✅ Qwen 视觉';
+            this.aiMessage = `${pg} 方案已获取 · 姿态追踪启动中...`;
+            // 若 canvas 尚未初始化（第一次触发），给 nextTick 时间挂载节点
+            this.$nextTick(() => {
+              if (!this.proCanvasCtx) this._initProCanvas();
+              setTimeout(() => this._startBodyTracking(false), 300);
+            });
+          }).catch(() => {
+            this.proAnalyzing = false;
+            this.aiMessage = '❌ 网络异常，请重试';
+          });
+        },
+        fail: () => uni.showToast({ title: '抓帧失败', icon: 'none' }),
+      });
+    },
+
+    // ── 共用：onCameraFrame 架构（专业模式和骨骼模式共享）──────────
+    //
+    // 原 VKSession 卡死的根本原因：
+    //   session.start() 后 AR 引擎在底层以相机原生帧率（30fps）持续跑骨架推理 pipeline。
+    //   我们在 JS 层对 requestAnimationFrame 的节流只控制"什么时候读结果"，
+    //   底层 GPU 推理负载从未减少，导致发烫卡死。
+    //
+    // 新架构：onCameraFrame 拿原始帧 → _isDetecting 硬锁控制推理频率
+    //   → 推理完成才释放锁 → 主线程不会被帧堆积淹没。
+    //
+    _startBodyTracking(forSkeleton = false) {
+      this._stopBodyTracking();   // 先清旧监听，防重入
+      this._smoothedKps = {};
+
+      const cameraCtx = uni.createCameraContext();
+
+      // ★ 规则4：保存句柄，onUnload/onHide 时 stop() 彻底释放摄像头 ★
+      _frameListener = cameraCtx.onCameraFrame(async (frame) => {
+        // ★ 规则2：异步推理硬锁——第一句就 return，绝对不堆帧 ★
+        if (_isDetecting) return;
+
+        // 规则1 第二道防线：时间戳节流 5fps
+        const now = Date.now();
+        if (now - _lastInferTs < _INFER_INTERVAL) return;
+        _lastInferTs = now;
+
+        _isDetecting = true;
+        try {
+          const poses = await this._estimatePose(frame);
+          if (poses && poses[0] && poses[0].keypoints) {
+            // 规则1：坐标归一化 + EMA 平滑，弥补低帧率跳点感
+            const smoothed = this._applySmoothing(poses[0].keypoints, frame.width, frame.height);
+
+            // ★ 规则3：构建 name-keyed map → 直接调 Canvas API，不写 Vue data ★
+            const kpMap = {};
+            smoothed.forEach((kp, i) => {
+              const name = _KP_NAMES[i];
+              if (name && (kp.score ?? 1) > 0.3) kpMap[name] = { x: kp.x, y: kp.y };
+            });
+            this._proKps = kpMap;     // 非响应式写入，_buildProGuideText / _drawProOverlay 读取
+            this._drawProOverlay();   // 直接操作 Canvas 2D，完全绕过 Vue 响应式
+
+            // HUD 文字：每 500ms 最多触发一次 Vue diff
+            if (now - this._proHudTs > 500) {
+              this._proHudTs = now;
+              if (!forSkeleton && this.proPlan) {
+                this.aiMessage = this._buildProGuideText();
+              } else if (forSkeleton) {
+                this.aiMessage = `🦴 检测到 ${Object.keys(kpMap).length} 个关键点`;
+              }
+            }
+          } else {
+            this._clearCanvas();
+          }
+        } catch (e) {
+          console.error('[Pose]', e);
+        } finally {
+          // ★ 规则2：无论成功失败必须释放锁，哪怕 1s 只处理 2 帧也没关系 ★
+          _isDetecting = false;
+        }
+      });
+
+      _frameListener.start();
+      uni.showToast({ title: '骨骼追踪已启动', icon: 'none' });
+    },
+
+    // ── 推理：onCameraFrame 原始帧 → JPEG → Flask /detect-pose → COCO-17 ─
+    // TF.js 在微信小程序中受 2MB 包体积和沙箱限制无法直接运行；
+    // 用现有 Flask 后端（YOLOv8n-pose）是最可靠的端云协同方案。
+    async _estimatePose(frame) {
+      // 1. 将 ArrayBuffer(RGBA) 编码为 JPEG 临时文件
+      const tempFilePath = await this._frameToJpeg(frame);
+      if (!tempFilePath) return null;
+
+      // 2. 上传至后端推理，10s 超时（本地局域网通常 <200ms）
+      let res;
+      try {
+        res = await detectPoseApi(tempFilePath);
+      } catch (_) {
+        return null;
+      }
+      if (res.statusCode !== 200 || !res.data?.keypoints) return null;
+
+      // 3. 后端返回归一化坐标 (0~1)，还原为帧像素坐标
+      //    _applySmoothing 内部会再次 /frameW /frameH 归一化，保持管线一致
+      const kps = res.data.keypoints.map(kp => ({
+        x:     kp.x * frame.width,
+        y:     kp.y * frame.height,
+        score: kp.score
+      }));
+      return [{ keypoints: kps }];
+    },
+
+    // ── ArrayBuffer(RGBA) → JPEG 临时文件路径 ─────────────────────
+    // 使用 wx.createOffscreenCanvas (基础库 2.7.0+) + wx.canvasToTempFilePath
+    async _frameToJpeg(frame) {
+      return new Promise((resolve) => {
+        try {
+          const canvas = wx.createOffscreenCanvas({
+            type: '2d',
+            width:  frame.width,
+            height: frame.height
+          });
+          const ctx = canvas.getContext('2d');
+          const imgData = ctx.createImageData(frame.width, frame.height);
+          imgData.data.set(new Uint8ClampedArray(frame.data));
+          ctx.putImageData(imgData, 0, 0);
+          wx.canvasToTempFilePath({
+            canvas,
+            fileType: 'jpg',
+            quality: 0.6,       // 骨架检测不需要高清，60% 够用且体积小
+            success: (r) => resolve(r.tempFilePath),
+            fail:    ()  => resolve(null)
+          });
+        } catch (e) {
+          console.error('[frameToJpeg]', e);
+          resolve(null);
+        }
+      });
+    },
+
+    // ── EMA 平滑 + 像素坐标归一化（pixel → 0~1）─────────────────
+    _applySmoothing(keypoints, frameW, frameH) {
+      const ALPHA = 0.3;
+      const W = frameW || 1;
+      const H = frameH || 1;
+      return keypoints.map((kp, i) => {
+        const nx = kp.x / W;
+        const ny = kp.y / H;
+        const prev = this._smoothedKps[i];
+        if (prev && (kp.score ?? 1) > 0.3) {
+          prev.x = prev.x * (1 - ALPHA) + nx * ALPHA;
+          prev.y = prev.y * (1 - ALPHA) + ny * ALPHA;
+          return { ...kp, x: prev.x, y: prev.y };
+        }
+        if ((kp.score ?? 1) > 0.3) this._smoothedKps[i] = { x: nx, y: ny };
+        return { ...kp, x: nx, y: ny };
+      });
+    },
+
+    // ── 规则4：彻底停止帧监听，释放摄像头与推理锁 ─────────────────
+    _stopBodyTracking() {
+      // ★ 规则4 核心：stop() 彻底断开 onCameraFrame，释放摄像头占用 ★
+      if (_frameListener) {
+        try { _frameListener.stop(); } catch (_) {}
+        _frameListener = null;
+      }
+      _isDetecting = false;
+      this._proKps = {};
+      this._smoothedKps = {};
+      this._clearCanvas();
+    },
+
+    _clearCanvas() {
+      if (this.proCanvasCtx && this.proCanvasWidth) {
+        this.proCanvasCtx.clearRect(0, 0, this.proCanvasWidth, this.proCanvasHeight);
+      }
+    },
+
+    // ── Canvas 绘制主入口 ──────────────────────────────────────────
+    _drawProOverlay() {
+      const ctx = this.proCanvasCtx
+      const W   = this.proCanvasWidth
+      const H   = this.proCanvasHeight
+      if (!ctx || !W || !H) return
+
+      ctx.clearRect(0, 0, W, H)
+
+      // name-keyed _proKps → COCO-17 索引数组（_drawSkeleton 所需格式）
+      // 缺失的关键点为 null，_drawSkeleton 内部 ok(null)=false 自动跳过
+      const kpArray = _KP_NAMES.map(name => this._proKps[name] ?? null)
+
+      // ★ 规则1：调用封装好的火柴人绘制函数，无任何 fillText ★
+      _drawSkeleton(ctx, kpArray, W, H)
+
+      // ── 专业模式附加层：目标点（绿色光晕）+ 偏差连线（红色虚线）──
+      // 骨骼模式下 proPlan 为空，直接跳过，零开销
+      const targetKps = this.proPlan?.target_keypoints
+      if (!targetKps) return
+
+      // 绿色目标关键点（Qwen 方案下发的参考姿态）
+      Object.entries(targetKps).forEach(([, [nx, ny]]) => {
+        ctx.beginPath()
+        ctx.arc(nx * W, ny * H, 11, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(52,199,89,0.75)'
+        ctx.shadowColor = '#34C759'
+        ctx.shadowBlur = 12
+        ctx.fill()
+        ctx.shadowBlur = 0
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+        ctx.lineWidth = 2
+        ctx.stroke()
+      })
+
+      // 红色虚线偏差连线（实际位置 → 目标位置，偏差 >10px 才显示）
+      _KP_NAMES.forEach((name, i) => {
+        const actual = kpArray[i]
+        const target = targetKps[name]
+        if (!actual || !target) return
+        const devPx = Math.hypot((actual.x - target[0]) * W, (actual.y - target[1]) * H)
+        if (devPx <= 10) return
+        ctx.beginPath()
+        ctx.moveTo(actual.x * W, actual.y * H)
+        ctx.lineTo(target[0] * W, target[1] * H)
+        ctx.strokeStyle = 'rgba(255,59,48,0.7)'
+        ctx.lineWidth = 1.5
+        ctx.setLineDash([5, 5])
+        ctx.stroke()
+        ctx.setLineDash([])
+      })
+    },
+
+    // ── 构建专业模式 HUD 文字（含精确数字） ────────────────────────
+    _buildProGuideText() {
+      if (!this.proPlan) return '';
+      const plan = this.proPlan;
+      const parts = [];
+
+      // 旋转：Qwen 建议值 + 实时传感器双重校验
+      const rot = plan.rotation_hint;
+      if (rot && rot.degrees > 0.3) {
+        const dir = rot.direction === 'left' ? '左' : '右';
+        const liveErr = Math.abs(this.tiltAngle).toFixed(1);
+        parts.push(`📐 向${dir}转 ${rot.degrees.toFixed(1)}°（当前偏 ${liveErr}°）`);
+      } else if (Math.abs(this.tiltAngle) > 1.0) {
+        const dir = this.tiltAngle > 0 ? '左' : '右';
+        parts.push(`📐 向${dir}转 ${Math.abs(this.tiltAngle).toFixed(1)}°`);
+      }
+
+      // 距离
+      const dist = plan.distance_hint;
+      if (dist && dist.cm > 5) {
+        parts.push(`📏 ${dist.action === 'move_back' ? '后退' : '前进'} ${dist.cm}cm`);
+      }
+
+      // 头部实时偏差（从非响应式 _proKps 读取）
+      const W = this.proCanvasWidth || 375;
+      const H = this.proCanvasHeight || 600;
+      const nosePlan = plan.target_keypoints?.nose;
+      const noseActual = this._proKps?.nose;
+      if (nosePlan && noseActual) {
+        const devPx = Math.round(Math.hypot(
+          (noseActual.x - nosePlan[0]) * W,
+          (noseActual.y - nosePlan[1]) * H
+        ));
+        parts.push(`🎯 头部偏 ${devPx}px`);
+      }
+
+      // 构图评分
+      if (plan.framing_score !== undefined) {
+        const e = plan.framing_score >= 80 ? '✨' : plan.framing_score >= 60 ? '👍' : '⚠️';
+        parts.push(`${e} 构图 ${plan.framing_score}分`);
+      }
+
+      return parts.length > 0 ? parts.join(' · ') : (plan.voice_guide || '保持当前姿势');
+    },
+
+    // ── 独立骨骼追踪模式 ────────────────────────────────────────────
+    toggleSkeletonMode() {
+      this.skeletonMode = !this.skeletonMode;
+      if (this.skeletonMode) {
+        if (this.aiRunning) this.stopAI();
+        if (this.grokRunning) this.stopGrok();
+        if (this.proMode) this._stopProMode();
+        this.aiMessage = '🦴 骨骼追踪启动中...';
+        this.$nextTick(() => {
+          this._initProCanvas();
+          // canvas 初始化是异步的，稍等再启动 VKSession
+          setTimeout(() => this._startBodyTracking(true), 300);
+        });
+      } else {
+        this._stopSkeletonMode();
+      }
+    },
+
+    _stopSkeletonMode() {
+      this._stopBodyTracking();
+      this.skeletonMode = false;
+      this.aiMessage = '';
+    }
   }
 };
 </script>
 
 <style scoped>
-.container { width: 100vw; height: 100vh; background: #000; display: flex; flex-direction: column; overflow: hidden; }
-.camera-view { flex: 1; width: 100%; position: relative; }
+.container {
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(180deg, #fff8f0 0%, #fff5eb 50%, #fff0e6 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
 
+.camera-view {
+  flex: 1;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  background: #1a1a1e;
+  border-radius: 0 0 48rpx 48rpx;
+  box-shadow: 0 12rpx 32rpx rgba(0, 0, 0, 0.08);
+}
+
+/* === HUD 数据看板 (适配浅色主题风格) === */
 .hud-panel {
   position: absolute;
   top: 40rpx;
   left: 40rpx;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 15rpx 25rpx;
-  border-radius: 12rpx;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 248, 240, 0.85); 
+  backdrop-filter: blur(8px);
+  padding: 16rpx 28rpx;
+  border-radius: 24rpx;
+  border: 1px solid rgba(255, 205, 165, 0.6);
   display: flex;
   flex-direction: column;
-  gap: 10rpx;
+  gap: 12rpx;
   pointer-events: none;
   z-index: 20;
+  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.06);
 }
+
 .hud-text {
-  color: #00ffcc;
-  font-size: 22rpx;
+  color: #EF6C3E; 
+  font-size: 24rpx;
+  font-weight: 600;
   font-family: monospace; 
 }
 
-.grid-v { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.4); }
-.grid-h { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.4); }
-.v1 { left: 33.33%; } .v2 { left: 66.66%; }
-.h1 { top: 33.33%; } .h2 { top: 66.66%; }
-
-.ai-bubble-wrap { position: absolute; bottom: 40rpx; left: 0; right: 0; display: flex; justify-content: center; padding: 0 40rpx; pointer-events: none; }
-
-.ai-bubble { 
-  background: rgba(0,0,0,0.7); 
-  border: 1px solid #00ffcc; 
-  border-radius: 20rpx; 
-  padding: 20rpx 30rpx; 
-  display: flex; 
-  flex-direction: column; 
-  width: auto; 
-  max-width: 90%; 
-  transition: all 0.3s; 
+/* 完美构图绿框高亮 */
+.perfect-border {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  border: 12rpx solid #34C759; box-sizing: border-box;
+  box-shadow: inset 0 0 40rpx rgba(52, 199, 89, 0.4);
+  pointer-events: none; z-index: 10;
 }
-.ai-text { 
-  color: #00ffcc; 
-  font-size: 28rpx; 
-  line-height: 1.5; 
-  white-space: pre-wrap; 
-  word-break: break-all; 
+
+.grid-v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.grid-h {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.v1 { left: 33.33%; }
+.v2 { left: 66.66%; }
+.h1 { top: 33.33%; }
+.h2 { top: 66.66%; }
+
+.template-box {
+  position: absolute;
+  top: 15%;
+  left: 10%;
+  width: 80%;
+  height: 60%;
+  border: 3rpx dashed rgba(255, 140, 66, 0.7);
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 32rpx;
+  background: rgba(255, 245, 230, 0.15);
+  backdrop-filter: blur(4px);
+}
+
+.template-box.portrait {
+  border-radius: 50%;
+  border-color: rgba(255, 140, 66, 0.9);
+  height: 50%;
+  top: 10%;
+  box-shadow: 0 0 40rpx rgba(255, 140, 66, 0.2);
+}
+
+.template-box.food {
+  border-color: rgba(255, 179, 71, 0.9);
+  height: 40%;
+  top: 30%;
+  box-shadow: 0 0 30rpx rgba(255, 179, 71, 0.15);
+}
+
+.template-box.scenery {
+  border-left: none;
+  border-right: none;
+  width: 100%;
+  left: 0;
+  top: 35%;
+  height: 30%;
+}
+
+.template-text {
+  margin-top: -40rpx;
+  color: #FF8C42;
+  background: rgba(255, 255, 245, 0.92);
+  font-size: 24rpx;
+  padding: 10rpx 24rpx;
+  border-radius: 48rpx;
+  font-weight: 600;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.08);
+  backdrop-filter: blur(4px);
+}
+
+.ai-bubble-wrap {
+  position: absolute;
+  bottom: 140rpx;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 32rpx;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.ai-bubble {
+  background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255, 248, 240, 0.95) 100%);
+  border: 1px solid rgba(255, 205, 165, 0.6);
+  border-radius: 48rpx;
+  padding: 20rpx 36rpx;
+  display: flex;
+  flex-direction: column;
+  max-width: 88%;
+  box-shadow: 0 12rpx 32rpx rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(12px);
   transition: all 0.3s;
 }
 
-.perfect-border {
-  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-  border: 10rpx solid #39FF14; box-sizing: border-box;
-  box-shadow: inset 0 0 50rpx rgba(57, 255, 20, 0.5);
-  pointer-events: none; z-index: 10;
+.ai-bubble.perfect-bubble { 
+  background: linear-gradient(135deg, rgba(240, 255, 244, 0.98) 0%, rgba(220, 255, 230, 0.95) 100%);
+  border-color: rgba(52, 199, 89, 0.6); 
+  transform: scale(1.05); 
 }
-.perfect-bubble { background: rgba(57, 255, 20, 0.2); border-color: #39FF14; transform: scale(1.05); }
-.perfect-text { color: #39FF14; font-weight: bold; }
 
-.template-box { position: absolute; top: 15%; left: 10%; width: 80%; height: 60%; border: 1px dashed #fff; pointer-events: none; display: flex; justify-content: center; }
-.template-box.portrait { border-radius: 50%; border-color: #ff69b4; height: 50%; top: 10%; }
-.template-box.food { border-color: #ffa500; height: 40%; top: 30%; }
-.template-box.scenery { border-left: none; border-right: none; width: 100%; left: 0; top: 35%; height: 30%; }
-.template-text { margin-top: -40rpx; color: #fff; background: rgba(0,0,0,0.5); font-size: 22rpx; padding: 4rpx 10rpx; border-radius: 4rpx; }
+.ai-text {
+  color: #EF6C3E;
+  font-size: 30rpx;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-weight: 500;
+  transition: all 0.3s;
+}
 
-.footer { height: 380rpx; background: #000; display: flex; flex-direction: column; justify-content: flex-start; padding-bottom: 20rpx; }
-
-.mode-selector { display: flex; justify-content: center; gap: 30rpx; padding: 20rpx 0; }
-.mode-item { color: #888; font-size: 26rpx; transition: all 0.2s; padding: 10rpx 20rpx; border-radius: 30rpx;}
-.mode-item.active { color: #000; background: #FFD700; font-weight: bold; transform: scale(1.1); }
-
-.tools-scroll { width: 100%; height: 120rpx; white-space: nowrap; margin-bottom: 10rpx; }
-.tools-inner { display: inline-flex; padding: 0 30rpx; gap: 40rpx; align-items: center; height: 100%; }
-.btn { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-width: 100rpx; }
-.emoji { font-size: 40rpx; }
-.desc { color: #ccc; font-size: 20rpx; margin-top: 8rpx; }
-
-.shutter-zone { display: flex; justify-content: center; align-items: center; flex: 1; }
-.shutter-outer { width: 130rpx; height: 130rpx; border: 6rpx solid #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-.shutter-inner { width: 105rpx; height: 105rpx; background: #fff; border-radius: 50%; }
-
-.panel-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99; display: flex; align-items: flex-end; }
-.panel { width: 100%; background: #1a1a1a; padding: 40rpx; border-radius: 30rpx 30rpx 0 0; }
-.panel-header { color: #888; font-size: 24rpx; margin-bottom: 20rpx; }
-.grid-row { display: flex; gap: 20rpx; margin-bottom: 40rpx; }
-.tag { background: #333; color: #fff; padding: 10rpx 30rpx; border-radius: 30rpx; font-size: 24rpx; }
-.tag.active { background: #007AFF; }
-.template-list { display: flex; flex-wrap: wrap; gap: 20rpx; }
-.t-item { background: #333; color: #fff; padding: 20rpx 30rpx; border-radius: 10rpx; font-size: 24rpx; }
-.t-item.clear { color: #ff4d4f; }
-.t-item.custom { background: #007AFF; }
-.custom-sketch-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.6; pointer-events: none; }
+.ai-text.perfect-text { color: #34C759; font-weight: bold; }
 
 .level-container {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 200rpx;
-  height: 200rpx;
+  width: 240rpx;
+  height: 240rpx;
   transform: translate(-50%, -50%);
   pointer-events: none;
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 5;
 }
+
 .crosshair-v {
   position: absolute;
-  width: 1px;
-  height: 40rpx;
-  background: rgba(255, 255, 255, 0.5);
+  width: 3rpx;
+  height: 50rpx;
+  background: rgba(255, 140, 66, 0.9);
+  border-radius: 2rpx;
 }
+
 .crosshair-h {
   position: absolute;
-  width: 40rpx;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.5);
+  width: 50rpx;
+  height: 3rpx;
+  background: rgba(255, 140, 66, 0.9);
+  border-radius: 2rpx;
 }
+
+/* 【关键修复点】：仅移除了 transform 的 transition 动画，保留原生 UI */
 .dynamic-line {
   position: absolute;
-  width: 240rpx;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.8);
-  transition: transform 0.05s linear, background-color 0.2s ease, opacity 0.2s ease;
+  width: 200rpx;
+  height: 4rpx;
+  background: rgba(255, 140, 66, 0.9);
+  transform-origin: center;
+  border-radius: 4rpx;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+  will-change: transform;
 }
+
 .line-leveled {
-  background: #FFD700;
-  height: 3px;
-  box-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+  background: linear-gradient(90deg, #FFB347, #FF8C42);
+  height: 5rpx;
+  box-shadow: 0 0 20rpx rgba(255, 140, 66, 0.7);
 }
+
 .line-flat {
   opacity: 0.2;
+}
+
+.permission-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #fff8f0 0%, #fff5eb 50%, #fff0e6 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.permission-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 64rpx 48rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255, 248, 240, 0.95) 100%);
+  border-radius: 48rpx;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 245, 230, 0.8);
+  box-shadow: 0 20rpx 48rpx -16rpx rgba(255, 140, 66, 0.12);
+}
+
+.permission-icon {
+  font-size: 120rpx;
+  margin-bottom: 36rpx;
+  animation: iconBreathe 2s ease-in-out infinite;
+}
+
+@keyframes iconBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.p-text {
+  color: #5B6E8C;
+  font-size: 32rpx;
+  margin-bottom: 36rpx;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.p-btn {
+  background: linear-gradient(135deg, #FFB25B 0%, #FF7E5F 100%);
+  color: white;
+  border-radius: 48rpx;
+  padding: 28rpx 72rpx;
+  font-size: 30rpx;
+  font-weight: 650;
+  border: none;
+  box-shadow: 0 16rpx 32rpx -10rpx rgba(255, 110, 97, 0.35);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.p-btn:active {
+  transform: scale(0.96);
+  box-shadow: 0 8rpx 16rpx -6rpx rgba(255, 110, 97, 0.4);
+}
+
+.footer {
+  background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255, 248, 240, 0.92) 100%);
+  backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(255, 245, 230, 0.8);
+  border-radius: 48rpx 48rpx 0 0;
+  padding-top: 12rpx;
+  padding-bottom: env(safe-area-inset-bottom, 24rpx);
+  box-shadow: 0 -12rpx 32rpx rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+/* 模式选择器（已改为 scroll-view，样式移至专业模式区块统一定义）*/
+.mode-item { 
+  color: #9CA8B8; font-size: 28rpx; font-weight: 500; transition: all 0.25s; 
+  padding: 12rpx 32rpx; border-radius: 40rpx; background: rgba(255, 248, 240, 0.8);
+}
+.mode-item.active { 
+  color: #fff; background: linear-gradient(135deg, #FFB25B 0%, #FF7E5F 100%); 
+  font-weight: 600; transform: scale(1.05); box-shadow: 0 8rpx 16rpx rgba(255, 110, 97, 0.3);
+}
+
+/* 工具栏滚动区 (适配原版 UI) */
+.tools-scroll {
+  width: 100%; white-space: nowrap; margin-bottom: 20rpx; height: 130rpx;
+}
+.tools-inner {
+  display: inline-flex; padding: 0 32rpx; gap: 40rpx; align-items: center; height: 100%;
+}
+
+.btn {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; 
+  min-width: 100rpx; padding: 16rpx 8rpx; border-radius: 32rpx; transition: all 0.25s;
+}
+.btn:active {
+  background: rgba(255, 140, 66, 0.1);
+  transform: scale(0.96);
+}
+
+.emoji {
+  font-size: 48rpx;
+  margin-bottom: 8rpx;
+  color: #FF8C42;
+  transition: transform 0.2s;
+}
+
+.desc {
+  color: #9CA8B8;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.btn:active .emoji {
+  transform: scale(0.9);
+}
+
+.shutter-zone {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-bottom: 10rpx;
+}
+
+.shutter-outer {
+  width: 152rpx;
+  height: 152rpx;
+  border: 6rpx solid rgba(255, 140, 66, 0.4);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 245, 230, 0.3);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 12rpx 32rpx rgba(255, 140, 66, 0.1);
+}
+
+.shutter-outer:active {
+  transform: scale(0.92);
+  border-color: #FF8C42;
+  background: rgba(255, 140, 66, 0.12);
+}
+
+.shutter-inner {
+  width: 120rpx;
+  height: 120rpx;
+  background: linear-gradient(135deg, #FFB25B 0%, #FF7E5F 100%);
+  border-radius: 50%;
+  transition: all 0.25s;
+  box-shadow: 0 8rpx 20rpx rgba(255, 110, 97, 0.4);
+}
+
+.shutter-outer:active .shutter-inner {
+  transform: scale(0.95);
+}
+
+.panel-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  z-index: 99;
+  display: flex;
+  align-items: flex-end;
+}
+
+.panel {
+  width: 100%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.99) 0%, rgba(255, 248, 240, 0.98) 100%);
+  border-radius: 48rpx 48rpx 0 0;
+  padding: 48rpx 32rpx;
+  box-shadow: 0 -16rpx 40rpx rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 245, 230, 0.8);
+  animation: panelSlideUp 0.3s ease;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+@keyframes panelSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.panel-header {
+  color: #9CA8B8;
+  font-size: 28rpx;
+  margin-bottom: 24rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1px solid rgba(255, 245, 230, 0.8);
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.grid-row {
+  display: flex;
+  gap: 24rpx;
+  margin-bottom: 48rpx;
+  justify-content: center;
+}
+
+.tag {
+  background: linear-gradient(135deg, #fff8f0 0%, #ffffff 100%);
+  color: #5B6E8C;
+  padding: 16rpx 40rpx;
+  border-radius: 48rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  transition: all 0.25s;
+  border: 1px solid rgba(255, 245, 230, 0.8);
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.02);
+}
+
+.tag.active {
+  background: linear-gradient(135deg, #FFB25B 0%, #FF7E5F 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 12rpx 24rpx -8rpx rgba(255, 110, 97, 0.35);
+}
+
+.tag:active {
+  transform: scale(0.96);
+}
+
+.template-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+  justify-content: center;
+}
+
+.t-item {
+  background: linear-gradient(135deg, #fff8f0 0%, #ffffff 100%);
+  color: #5B6E8C;
+  padding: 20rpx 36rpx;
+  border-radius: 48rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  transition: all 0.25s;
+  border: 1px solid rgba(255, 245, 230, 0.8);
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.02);
+}
+
+.t-item.custom {
+  background: linear-gradient(135deg, #FFB25B 0%, #FF7E5F 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 12rpx 24rpx -8rpx rgba(255, 110, 97, 0.35);
+}
+
+.t-item.clear {
+  background: rgba(255, 140, 66, 0.06);
+  color: #EF6C3E;
+  border-color: rgba(255, 140, 66, 0.2);
+}
+
+.t-item:active {
+  transform: scale(0.96);
+}
+
+.custom-sketch-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.4;
+  pointer-events: none;
+  background: transparent;
+}
+
+/* ===================== 专业模式 ===================== */
+
+/* camera-area 作为相机 + canvas 的共同定位父容器 */
+.camera-area {
+  flex: 1;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 重写 camera-view：撑满 camera-area */
+.camera-view {
+  width: 100% !important;
+  height: 100% !important;
+  flex: unset !important;
+  background: #1a1a1e;
+  border-radius: 0 0 48rpx 48rpx;
+}
+
+/* Canvas 骨骼追踪层：绝对定位覆盖相机，z-index 高于 cover-view */
+.pro-canvas-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 30;
+  border-radius: 0 0 48rpx 48rpx;
+}
+
+/* 一键分析悬浮按钮 */
+.pro-trigger-btn {
+  position: absolute;
+  top: 24rpx;
+  right: 24rpx;
+  z-index: 40;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.92) 0%, rgba(99, 102, 241, 0.88) 100%);
+  border-radius: 40rpx;
+  padding: 18rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6rpx;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8rpx 24rpx rgba(79, 70, 229, 0.4);
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: all 0.2s;
+}
+.pro-trigger-btn:active {
+  transform: scale(0.94);
+  box-shadow: 0 4rpx 12rpx rgba(79, 70, 229, 0.5);
+}
+.pro-trigger-icon {
+  font-size: 48rpx;
+}
+.pro-trigger-text {
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+/* 专业模式按钮：紫色渐变区别于橙色系 */
+.mode-selector {
+  width: 100%;
+  white-space: nowrap;
+  padding: 16rpx 0 20rpx;
+}
+.mode-inner {
+  display: inline-flex;
+  padding: 0 24rpx;
+  gap: 16rpx;
+  align-items: center;
+  min-width: 100%;
+  justify-content: center;
+}
+.pro-mode-item.active {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+  box-shadow: 0 8rpx 16rpx rgba(99, 102, 241, 0.4) !important;
 }
 </style>

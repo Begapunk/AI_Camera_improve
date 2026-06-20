@@ -17,7 +17,7 @@
     "ignoreDevUnusedFiles": true,
     "bigPackageSizeSupport": true
   },
-  "libVersion": "3.15.0",
+  "libVersion": "3.13.0",
   "projectname": "universal_snap_vue3",
   "condition": {}
 }

@@ -1,40 +1,61 @@
 <template>
-  <view class="env-container">
-    <!-- 上传并预览环境照片 -->
-    <view class="upload-area">
+  <view class="container">
+    <view class="nav-bar">
+      <view class="back-btn" @click="goBack">
+        <text class="back-icon">←</text>
+      </view>
+      <text class="nav-title">环境分析报告</text>
+      <view class="right-placeholder"></view>
+    </view>
+
+    <scroll-view class="content" scroll-y enhanced :show-scrollbar="false">
+      <view class="image-placeholder">
+        <view v-if="imageUrl" class="preview-container">
+          <image :src="imageUrl" mode="aspectFill" class="preview" />
+        </view>
+        <view v-else class="placeholder-content">
+          <text class="placeholder-icon">📷</text>
+          <text class="placeholder-text">点击上传环境图片</text>
+        </view>
+      </view>
+
       <button @tap="chooseImage" class="btn-primary">上传环境图片</button>
-      <image v-if="imageUrl" :src="imageUrl" mode="widthFix" class="preview" />
-    </view>
 
-    <!-- AI 建议 -->
-    <view v-if="suggestion" class="suggestion-box">
-      <text class="suggestion-title">📸 AI 构图与姿势建议：</text>
-      <text class="suggestion-text">{{ suggestion }}</text>
-    </view>
+      <view v-if="suggestion" class="suggestion-box">
+        <view class="suggestion-header">
+          <text class="suggestion-icon">✨</text>
+          <text class="suggestion-title">AI 环境建议</text>
+        </view>
+        <text class="suggestion-text">{{ suggestion }}</text>
+      </view>
 
-    <!-- 重放按钮：只有拿到音频后才出现 -->
-    <button v-if="audioUrl" @tap="replayAudio" class="btn-primary replay-btn">
-      🔊 重放语音
-    </button>
+      <button v-if="audioUrl" @tap="replayAudio" class="btn-primary replay-btn">
+        🔊 重放语音
+      </button>
+    </scroll-view>
   </view>
 </template>
 
 <script setup>
 import { ref, onUnmounted } from 'vue'
-import { analyzeEnvApi } from '@/utils/request.js'   
+import { analyzeEnvApi } from '@/utils/request.js'
 
-const imageUrl   = ref('')
+const imageUrl = ref('')
 const suggestion = ref('')
-const audioUrl   = ref('')
-let audioCtx     = null     // 组件外的可变引用
+const audioUrl = ref('')
+let audioCtx = null
+
+function goBack() {
+  uni.navigateBack()
+}
 
 function chooseImage () {
   uni.chooseImage({
     count: 1,
     success: ({ tempFilePaths }) => {
-      imageUrl.value  = tempFilePaths[0]
+      imageUrl.value = tempFilePaths[0]
       suggestion.value = 'AI 分析中...'
-      audioUrl.value   = ''
+      audioUrl.value = ''
       doAnalyze()
     }
   })
@@ -48,7 +69,7 @@ async function doAnalyze () {
 
     if (res.advice) {
       suggestion.value = res.advice
-      audioUrl.value   = res.audioUrl || ''
+      audioUrl.value = res.audioUrl || ''
       playAudio()
     } else {
       suggestion.value = 'AI 未返回建议'
@@ -83,98 +104,184 @@ onUnmounted(() => {
 })
 </script>
 
-
 <style scoped>
-:root {
-  --primary: #1E80FF;
-  --primary-dark: #166DFF;
-  --primary-light: #D9E7FF;
-  --text-dark: #1B2F5B;
-  --bg-light: #F7FAFF;
-  --shadow: rgba(30, 128, 255, 0.25);
-}
-
-.env-container {
-  padding: 40rpx 30rpx;
-  background: var(--bg-light);
+.container {
+  width: 100%;
   min-height: 100vh;
+  background: linear-gradient(180deg, #fff8f0 0%, #fff5eb 50%, #fff0e6 100%);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
-.upload-area {
+.nav-bar {
   width: 100%;
-  max-width: 680rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 60rpx 32rpx 24rpx;
+}
+
+.back-btn {
+  flex: 0 0 72rpx;
+  width: 72rpx;
+  height: 72rpx;
+  background: linear-gradient(135deg, #ffffff 0%, #fff8f0 100%);
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(255, 140, 66, 0.1), 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+
+.back-btn:active {
+  transform: scale(0.92);
+}
+
+.back-icon {
+  font-size: 44rpx;
+  color: #FF8C42;
+  font-weight: 600;
+}
+
+.nav-title {
+  flex: 1;
+  min-width: 0;
   text-align: center;
-  margin-bottom: 50rpx;
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #EF6C3E;
+}
+
+.right-placeholder {
+  flex: 0 0 72rpx;
+  width: 72rpx;
+}
+
+.content {
+  width: 100%;
+  flex: 1;
+  padding: 12rpx 32rpx 60rpx;
+}
+
+.image-placeholder {
+  width: 100%;
+  height: 510rpx;
+  border-radius: 32rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255, 248, 240, 0.95) 100%);
+  border: 2px solid rgba(255, 245, 230, 0.9);
+  box-shadow: 0 24rpx 48rpx -16rpx rgba(255, 140, 66, 0.12), 0 8rpx 20rpx rgba(0,0,0,0.06);
+  margin-bottom: 48rpx;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.preview-container,
+.preview {
+  width: 100%;
+  height: 100%;
+}
+
+.preview {
+  object-fit: cover;
+  border-radius: 32rpx;
+}
+
+.placeholder-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255, 245, 235, 0.3);
+  gap: 24rpx;
+}
+
+.placeholder-icon {
+  font-size: 100rpx;
+  animation: breathe 2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.placeholder-text {
+  color: #5B6E8C;
+  font-size: 32rpx;
+  text-align: center;
+  padding: 0 40rpx;
+  line-height: 1.6;
+  font-weight: 500;
 }
 
 .btn-primary {
   width: 100%;
-  padding: 18rpx 0;
-  font-size: 30rpx;
-  font-weight: 700;
+  max-width: 580rpx;
+  margin: 0 auto 32rpx;
+  background: linear-gradient(135deg, #FFB25B 0%, #FF7E5F 100%);
   color: white;
-  background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+  font-size: 32rpx;
+  font-weight: 700;
+  padding: 32rpx 0;
+  border-radius: 48rpx;
   border: none;
-  border-radius: 40rpx;
-  box-shadow: 0 8rpx 16rpx var(--shadow);
-  cursor: pointer;
-  transition: background 0.3s ease, box-shadow 0.3s ease;
-  margin-top:100rpx;
+  box-shadow: 0 16rpx 32rpx -10rpx rgba(255, 110, 97, 0.35);
 }
 
-.btn-primary:hover,
 .btn-primary:active {
-  background: var(--primary-dark);
-  box-shadow: 0 4rpx 12rpx rgba(22, 109, 255, 0.4);
-}
-
-.preview {
-  margin-top: 30rpx;
-  width: 100%;
-  max-width: 680rpx; /* 放大最大宽度 */
-  height: auto;
-  border-radius: 20rpx;
-  box-shadow: 0 8rpx 18rpx rgba(0, 0, 0, 0.12);
-  object-fit: contain;
+  transform: scale(0.96);
 }
 
 .suggestion-box {
   width: 100%;
-  max-width: 580rpx;
-  background: white;
-  border-radius: 24rpx;
-  padding: 36rpx 32rpx;
-  box-shadow: 0 8rpx 20rpx rgba(30, 128, 255, 0.15);
-  color: var(--text-dark);
-  user-select: text;
-  line-height: 1.6;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255, 248, 240, 0.96) 100%);
+  border-radius: 32rpx;
+  padding: 40rpx;
+  box-shadow: 0 20rpx 48rpx -16rpx rgba(255, 140, 66, 0.08), 0 8rpx 20rpx rgba(0,0,0,0.04);
+  border: 1px solid rgba(255, 245, 230, 0.6);
+  margin-bottom: 28rpx;
+}
+
+.suggestion-header {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 28rpx;
+}
+
+.suggestion-icon {
+  font-size: 36rpx;
 }
 
 .suggestion-title {
-  font-size: 34rpx;
-  font-weight: 800;
-  margin-bottom: 20rpx;
-  color: var(--primary-dark);
-  user-select: none;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #2D3E50;
 }
 
 .suggestion-text {
-  font-size: 28rpx;
+  display: block;
+  font-size: 30rpx;
+  line-height: 1.7;
+  color: #5B6E8C;
+  text-align: justify;
   white-space: pre-wrap;
+  background: rgba(255, 140, 66, 0.04);
+  padding: 24rpx;
+  border-radius: 20rpx;
+  border-left: 4rpx solid #FF8C42;
 }
 
 .replay-btn {
-  margin-top: 40rpx;
-  width: 360rpx;
-  font-size: 28rpx;
-  border-radius: 36rpx;
-  box-shadow: 0 6rpx 14rpx var(--shadow);
-  letter-spacing: 1.2px;
+  margin-top: 12rpx;
+  max-width: 360rpx;
+  font-size: 30rpx;
 }
 </style>

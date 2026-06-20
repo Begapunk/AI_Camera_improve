@@ -8,6 +8,9 @@ const _sfc_main = {
     const suggestion = common_vendor.ref("");
     const audioUrl = common_vendor.ref("");
     let audioCtx = null;
+    function goBack() {
+      common_vendor.index.navigateBack();
+    }
     function chooseImage() {
       common_vendor.index.chooseImage({
         count: 1,
@@ -59,18 +62,19 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: common_vendor.o(chooseImage),
+        a: common_vendor.o(goBack),
         b: imageUrl.value
       }, imageUrl.value ? {
         c: imageUrl.value
       } : {}, {
-        d: suggestion.value
+        d: common_vendor.o(chooseImage),
+        e: suggestion.value
       }, suggestion.value ? {
-        e: common_vendor.t(suggestion.value)
+        f: common_vendor.t(suggestion.value)
       } : {}, {
-        f: audioUrl.value
+        g: audioUrl.value
       }, audioUrl.value ? {
-        g: common_vendor.o(replayAudio)
+        h: common_vendor.o(replayAudio)
       } : {});
     };
   }

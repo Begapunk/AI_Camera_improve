@@ -3,14 +3,37 @@ import base64
 import time
 import uuid
 import random
+import json  # 引入 json 解析测距模型的返回结果
 from io import BytesIO
 
-# --- [新增] 引入 Pillow 用于生成图片验证码 ---
+# --- 引入 Pillow 用于生成图片验证码 ---
 from PIL import Image, ImageDraw, ImageFont
 
-# --- [新增] 引入 OpenCV 和 NumPy 用于图像处理 ---
+# --- 引入 OpenCV 和 NumPy 用于图像处理 ---
 import cv2
 import numpy as np
+# --- 骨骼追踪：YOLOv8n-pose 延迟加载（首次调用时自动下载 ~6MB 模型）---
+import threading
+_pose_model = None
+_pose_model_lock = threading.Lock()
+
+def _get_pose_model():
+    global _pose_model
+    if _pose_model is None:
+        with _pose_model_lock:
+            if _pose_model is None:
+                from ultralytics import YOLO
+                _pose_model = YOLO('yolov8n-pose.pt')
+    return _pose_model
+
+def _preload_pose_model():
+    try:
+        _get_pose_model()
+        print('[Pose] YOLOv8n-pose model ready')
+    except Exception as e:
+        print(f'[Pose] model preload failed: {e}')
+
+threading.Thread(target=_preload_pose_model, daemon=True).start()
 # -------------------------------------------
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -19,21 +42,39 @@ from openai import OpenAI
 from aip import AipSpeech
 from volcengine.visual.VisualService import VisualService
 
-# 引入数据库操作与配置
+# 引入数据库操作与配置 (合并了所有所需的数据库函数)
 from db.db import (
     insert_photo_analysis, get_all_photo_analyses,
     delete_photo_analysis, register_user, verify_user,
-    get_user_info, update_user_info, update_user_password
+    get_user_info, update_user_info, update_user_password,
+    get_face_registered, mark_face_registered
+)
+from Face_ID import face_manager
+# 地铁模式：转辙机遗留物（FOD）检测
+from db.metro_db import (
+    upsert_device, get_device, insert_inspection,
+    confirm_inspection, list_inspections
+)
+from metro import (
+    METRO_MODELS, resolve_family, run_detection, RESULT_REVIEW
 )
 from settings import (
     BAIDU_APP_ID, BAIDU_API_KEY, BAIDU_SECRET_KEY,
     ALIYUN_API_KEY, ALIYUN_BASE_URL,
     VOLC_IA_AK, VOLC_IA_SK,
-    GROK_API_KEY
+    GROK_API_KEY, PALIGEMMA_MODEL_PATH
 )
 from security.password_validator import PasswordValidator
+from migrate_users_table import migrate_users_table
 
 app = Flask(__name__)
+
+# 启动时自动完成数据库迁移（幂等操作，已有列则跳过）
+try:
+    migrate_users_table()
+except Exception as _migrate_err:
+    print(f'[migrate] 迁移跳过: {_migrate_err}')
+
 # 开启全局跨域支持，确保小程序上传不被拦截
 CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -41,25 +82,26 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 AUDIO_FOLDER = os.path.join(BASE_DIR, 'static', 'audio')
+# 地铁模式：基准图与检测证据分目录存放，便于审计与生命周期管理
+METRO_BASELINE_FOLDER = os.path.join(UPLOAD_FOLDER, 'metro_baseline')
+METRO_EVIDENCE_FOLDER = os.path.join(UPLOAD_FOLDER, 'metro')
 
 # 确保目录存在
-for folder in [UPLOAD_FOLDER, AUDIO_FOLDER]:
+for folder in [UPLOAD_FOLDER, AUDIO_FOLDER, METRO_BASELINE_FOLDER, METRO_EVIDENCE_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-# 初始化各平台 SDK 客户端
+# 初始化各平台 SDK 客户端 (注: OpenAI 客户端已移至函数内部按需实例化，防止长连接超时)
 baidu_client = AipSpeech(BAIDU_APP_ID, BAIDU_API_KEY, BAIDU_SECRET_KEY)
-client = OpenAI(api_key=ALIYUN_API_KEY, base_url=ALIYUN_BASE_URL)
-xai_client = OpenAI(api_key=GROK_API_KEY, base_url="https://api.x.ai/v1")
 
 visual_service = VisualService()
 visual_service.set_ak(VOLC_IA_AK)
 visual_service.set_sk(VOLC_IA_SK)
 password_validator = PasswordValidator()
 
-# --- [新增] 内存验证码存储 (格式: {captcha_id: {"answer": "12", "expires": timestamp}}) ---
+# 内存验证码存储 (格式: {captcha_id: {"answer": "12", "expires": timestamp}})
 CAPTCHA_STORE = {}
 
 
@@ -72,7 +114,6 @@ def cleanup_captchas():
 
 
 # -------------------------------------------------------------------------
-
 
 # --- 辅助函数：构建动态 URL ---
 def build_file_url(subpath, filename):
@@ -95,7 +136,7 @@ def create_transparent_sketch(image_bytes):
     return rgba
 
 
-# --- [新增] 辅助函数：校验验证码 ---
+# --- 辅助函数：校验验证码 ---
 def verify_captcha(captcha_id, captcha_answer):
     cleanup_captchas()  # 每次校验时顺便清理过期数据
     if not captcha_id or not captcha_answer:
@@ -116,11 +157,9 @@ def verify_captcha(captcha_id, captcha_answer):
 
 # -------------------------------------------
 
-
-# --- [新增] 0. 获取验证码接口 ---
+# --- 0. 获取验证码接口 ---
 @app.route('/api/captcha', methods=['GET'])
 def get_captcha():
-    # 1. 生成简单的数学题
     num1 = random.randint(1, 10)
     num2 = random.randint(1, 10)
     operator = random.choice(['+', '*'])
@@ -132,13 +171,12 @@ def get_captcha():
         answer = str(num1 * num2)
         text = f"{num1} x {num2} = ?"
 
-    # 2. 生成图片 (使用柔和的黄色系，避开红色)
+    # 生成图片 (使用柔和的黄色系)
     width, height = 120, 40
-    # 背景色：浅黄色
     image = Image.new('RGB', (width, height), color=(255, 250, 205))
     draw = ImageDraw.Draw(image)
 
-    # 绘制干扰线 (暖黄色)
+    # 绘制干扰线
     for _ in range(5):
         x1, y1 = random.randint(0, width), random.randint(0, height)
         x2, y2 = random.randint(0, width), random.randint(0, height)
@@ -149,22 +187,18 @@ def get_captcha():
         x, y = random.randint(0, width), random.randint(0, height)
         draw.point((x, y), fill=(218, 165, 32))
 
-    # 尽量加载默认字体，按需调整位置
     try:
         font = ImageFont.load_default()
     except Exception:
         font = None
 
-    # 文字颜色：深黄色/棕色
     draw.text((15, 10), text, font=font, fill=(139, 101, 8))
 
-    # 3. 转为 Base64
     buffered = BytesIO()
     image.save(buffered, format="PNG")
     img_base64 = base64.b64encode(buffered.getvalue()).decode()
     img_data_url = f"data:image/png;base64,{img_base64}"
 
-    # 4. 存储答案
     captcha_id = str(uuid.uuid4())
     CAPTCHA_STORE[captcha_id] = {
         "answer": answer,
@@ -179,16 +213,15 @@ def get_captcha():
 
 # -------------------------------------------
 
-
 # --- 1. 用户认证模块 ---
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
     username, password = data.get('username'), data.get('password')
+    face_data = data.get('face_data')
     captcha_id = data.get('captcha_id')
     captcha_answer = data.get('captcha_answer')
 
-    # [新增] 校验验证码
     is_valid_captcha, captcha_msg = verify_captcha(captcha_id, captcha_answer)
     if not is_valid_captcha:
         return jsonify({"error": captcha_msg}), 400
@@ -197,7 +230,61 @@ def register():
         return jsonify({"error": "用户名和密码不能为空"}), 400
 
     success, message = register_user(username, password)
-    return jsonify({"message": message}) if success else (jsonify({"error": message}), 400)
+    if not success:
+        return jsonify({"error": message}), 400
+
+    # 注册时可选同步录入人脸
+    if face_data:
+        ok, _ = face_manager.register_user_face(username, face_data)
+        if ok:
+            mark_face_registered(username)
+
+    return jsonify({"message": message})
+
+
+@app.route('/login-face', methods=['POST'])
+def login_face():
+    data = request.json or {}
+    face_data = data.get('face_data')
+    if not face_data:
+        return jsonify({"error": "缺少人脸数据"}), 400
+
+    success, result = face_manager.verify_login_face(face_data)
+    if not success:
+        return jsonify({"error": result}), 401
+
+    # result 即注册时写入百度的 user_id（等于 username）
+    username = result
+    user_info = get_user_info(username)
+    if not user_info:
+        return jsonify({"error": "用户不存在，请先注册"}), 404
+
+    return jsonify({"message": "识别成功", "username": username})
+
+
+@app.route('/update-face', methods=['POST'])
+def update_face():
+    data = request.json or {}
+    username = data.get('username')
+    face_data = data.get('face_data')
+
+    if not username or not face_data:
+        return jsonify({"error": "缺少必要参数"}), 400
+
+    if not get_user_info(username):
+        return jsonify({"error": "用户不存在"}), 404
+
+    already_bound = get_face_registered(username)
+    if already_bound:
+        ok, message = face_manager.update_user_face(username, face_data)
+    else:
+        ok, message = face_manager.register_user_face(username, face_data)
+
+    if not ok:
+        return jsonify({"error": message}), 400
+
+    mark_face_registered(username)
+    return jsonify({"message": message})
 
 
 @app.route('/login', methods=['POST'])
@@ -207,12 +294,10 @@ def login():
     captcha_id = data.get('captcha_id')
     captcha_answer = data.get('captcha_answer')
 
-    # [新增] 校验验证码
     is_valid_captcha, captcha_msg = verify_captcha(captcha_id, captcha_answer)
     if not is_valid_captcha:
         return jsonify({"error": captcha_msg}), 400
 
-    # 密码安全校验
     is_valid_pwd, errors = password_validator.validate(password, username)
     if not is_valid_pwd:
         return jsonify({"error": "密码不合规", "details": errors}), 400
@@ -221,7 +306,9 @@ def login():
     return jsonify({"message": message}) if success else (jsonify({"error": message}), 401)
 
 
-# --- 2. 核心分析模块 (小程序实时轮询请求 - 阿里云 Qwen) ---
+# -------------------------------------------
+
+# --- 2. 核心分析模块 ---
 @app.route('/analyze', methods=['POST'])
 def analyze():
     file = request.files.get('file')
@@ -236,7 +323,9 @@ def analyze():
     img_data_url = f"data:image/jpeg;base64,{img_base64}"
 
     try:
-        completion = client.chat.completions.create(
+        # 【核心修复】：函数内部建立全新连接，杜绝僵尸 Socket
+        local_client = OpenAI(api_key=ALIYUN_API_KEY, base_url=ALIYUN_BASE_URL)
+        completion = local_client.chat.completions.create(
             model="qwen-vl-plus",
             messages=[
                 {"role": "system", "content": [{"type": "text", "text": "你是一个摄影指导助手。"}]},
@@ -246,6 +335,7 @@ def analyze():
                 ]},
             ],
             presence_penalty=1.5,
+            max_tokens=300,
         )
         advice = completion.choices[0].message.content.strip()
 
@@ -262,7 +352,6 @@ def analyze():
         return jsonify({"error": str(e)}), 500
 
 
-# --- Grok 分析模块 ---
 @app.route('/analyze-grok', methods=['POST'])
 def analyze_grok():
     file = request.files.get('file')
@@ -278,7 +367,9 @@ def analyze_grok():
     img_data_url = f"data:image/jpeg;base64,{img_base64}"
 
     try:
-        completion = xai_client.chat.completions.create(
+        # 【核心修复】：新建客户端
+        local_xai_client = OpenAI(api_key=GROK_API_KEY, base_url="https://api.x.ai/v1")
+        completion = local_xai_client.chat.completions.create(
             model="grok-2-vision-1212",
             messages=[
                 {
@@ -303,11 +394,337 @@ def analyze_grok():
             "model": "Grok"
         })
     except Exception as e:
-        print(f"Grok API Error: {e}")
         return jsonify({"error": f"Grok 服务异常: {str(e)}"}), 500
 
 
-# --- 生成自定义线稿接口 ---
+# --- 智能测距构图相关提示词与处理逻辑 ---
+PROMPT_TEMPLATES = {
+    "person": """
+你是一个专业的人像摄影指导大师。请分析这张图片，并结合用户当前的手机参数给出构图建议。
+【当前手机状态】：水平倾斜角 {tilt_angle} 度。
+【人像构图法则】：
+1. 人脸不应在正中心，应在画面上方的三分之一处（黄金分割线）。
+2. 头顶上方必须留有一定的空间（留白）。
+3. 画面必须保持水平（倾斜角应接近 0 度）。
+
+请严格判断当前画面是否符合标准。
+如果不完美，请给出一句简短的中文语音指令（控制在15个字以内）。
+【视觉测距强制要求】：请识别画面中主要人物的肩宽或脸宽，估算其占整张图片宽度的比例（用小数 subject_ratio 表示）。并预估该部位的真实物理宽度（单位：米，用 subject_real_width 表示，如成年人肩宽0.4，脸宽0.15）。同时返回部位名称 subject_name。
+""",
+    "object": """
+你是一个专业的静物/产品摄影指导大师。请分析这张图片，并结合用户当前的手机参数给出构图建议。
+【当前手机状态】：水平倾斜角 {tilt_angle} 度。
+【静物构图法则】：核心拍摄物体应该尽可能占据画面的中心位置，背景尽量干净。
+
+请严格判断当前画面是否符合标准。
+如果不完美，请给出一句简短的中文语音指令（控制在15个字以内）。
+【视觉测距强制要求】：请识别画面中的核心物品，精确估算其宽度占整张图片宽度的比例（用小数 subject_ratio 表示）。并预估该物品的真实物理宽度（单位：米，用 subject_real_width 表示）。同时返回物品名称 subject_name。
+""",
+    "scenery": """
+你是一个专业的风景风光摄影指导大师。请分析这张图片，并结合用户当前的手机参数给出构图建议。
+【当前手机状态】：水平倾斜角 {tilt_angle} 度。
+【风景构图法则】：画面中的地平线或海平面必须绝对水平。遵循三分法则。
+
+请严格判断当前画面是否符合标准。
+如果不完美，请给出一句简短的中文语音指令（控制在15个字以内）。
+【视觉测距强制要求】：请识别画面中最大的特征景物（如建筑、树木、车辆），估算其宽度占整张图片的比例（小数 subject_ratio）。并预估其真实物理宽度（单位：米，用 subject_real_width 表示，如普通汽车约 4.0 米）。同时返回景物名称 subject_name。
+"""
+}
+
+
+def call_smart_vision_model(img_base64, prompt):
+    """专门为智能构图调用的视觉分析函数，强行提取包含占比参数的 JSON"""
+    system_instruction = prompt + """
+
+请必须只返回合法的 JSON 格式，不要包含任何 markdown 标记，格式必须严格包含以下字段：
+{
+  "is_perfect": false, 
+  "advice": "请把手机靠近一点", 
+  "subject_ratio": 0.35, 
+  "subject_name": "马克杯", 
+  "subject_real_width": 0.08
+}"""
+
+    img_data_url = f"data:image/jpeg;base64,{img_base64}"
+
+    # 【核心修复】：新建客户端
+    local_client = OpenAI(api_key=ALIYUN_API_KEY, base_url=ALIYUN_BASE_URL)
+    completion = local_client.chat.completions.create(
+        model="qwen-vl-plus",
+        messages=[
+            {"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": img_data_url}},
+                {"type": "text", "text": system_instruction}
+            ]},
+        ],
+        max_tokens=400,
+    )
+    raw_content = completion.choices[0].message.content.strip()
+
+    # 【终极防截断写法】：使用 chr(96) 生成反引号，彻底避开网页复制粘贴 bug
+    backticks = chr(96) * 3
+    raw_content = raw_content.replace(backticks + "json", "").replace(backticks, "").strip()
+
+    return json.loads(raw_content)
+
+
+# --- 智能构图视觉测距接口 ---
+@app.route('/smart-analyze', methods=['POST'])
+def smart_analyze():
+    try:
+        file = request.files.get('file')
+        if not file:
+            return jsonify({"error": "No image file provided"}), 400
+
+        filename = f"smart_{int(time.time())}_{secure_filename(file.filename)}"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+
+        with open(filepath, "rb") as f:
+            img_base64 = base64.b64encode(f.read()).decode()
+
+        mode = request.form.get('mode', 'person')
+        tilt_angle = request.form.get('tilt_angle', '0')
+
+        if mode not in PROMPT_TEMPLATES:
+            return jsonify({"error": "Invalid mode"}), 400
+
+        base_prompt = PROMPT_TEMPLATES[mode]
+        formatted_prompt = base_prompt.format(tilt_angle=tilt_angle)
+
+        ai_result = call_smart_vision_model(img_base64, formatted_prompt)
+
+        return jsonify({
+            "code": 200,
+            "data": {
+                "mode": mode,
+                "is_perfect": ai_result.get("is_perfect", False),
+                "advice": ai_result.get("advice", "继续保持"),
+                "subject_ratio": float(ai_result.get("subject_ratio", 0.0)),
+                "subject_name": ai_result.get("subject_name", ""),
+                "subject_real_width": float(ai_result.get("subject_real_width", 0.0))
+            }
+        })
+
+    except Exception as e:
+        # 【核心修复】：删除了危险的 print，不再抛出引发前端断连的 HTML 报错页面，优雅返回 JSON
+        return jsonify({
+            "code": 500,
+            "error": str(e),
+            "data": {
+                "is_perfect": False,
+                "advice": "系统思考中，请重新测距...",
+                "subject_ratio": 0.0,
+                "subject_name": "",
+                "subject_real_width": 0.0
+            }
+        }), 500
+
+
+# -------------------------------------------
+
+# =========================================================================
+# --- 专业模式：PaliGemma（本地）+ Qwen-VL（云端）三段流水线 ---
+# =========================================================================
+
+# PaliGemma 懒加载：首次调用时初始化，避免 Flask 启动时阻塞 30+ 秒
+_pali_model = None
+_pali_processor = None
+_pali_device = None
+
+
+def _load_paligemma():
+    """懒加载 PaliGemma，线程不安全但对单进程 Flask 足够用"""
+    global _pali_model, _pali_processor, _pali_device
+    if _pali_model is not None:
+        return _pali_model, _pali_processor, _pali_device
+
+    import torch
+    from transformers import AutoProcessor, PaliGemmaForConditionalGeneration
+
+    _pali_device = "cuda" if torch.cuda.is_available() else "cpu"
+    dtype = torch.bfloat16 if _pali_device == "cuda" else torch.float32
+
+    _pali_processor = AutoProcessor.from_pretrained(PALIGEMMA_MODEL_PATH)
+    _pali_model = PaliGemmaForConditionalGeneration.from_pretrained(
+        PALIGEMMA_MODEL_PATH,
+        torch_dtype=dtype,
+        device_map=_pali_device,
+    ).eval()
+
+    return _pali_model, _pali_processor, _pali_device
+
+
+def _paligemma_infer(image_bytes):
+    """
+    使用本地 paligemma2-3b-ft-docci-448 生成密集场景描述。
+    DOCCI 微调版不支持 <loc> 边界框格式，但能生成极详细的
+    场景/人物/光照/姿态描述，作为 Qwen 的高质量上下文输入。
+
+    返回 dict: description (str), img_w (int), img_h (int)
+    """
+    import torch
+    from PIL import Image as PILImage
+
+    model, processor, device = _load_paligemma()
+    pil_img = PILImage.open(BytesIO(image_bytes)).convert("RGB")
+    img_w, img_h = pil_img.size
+
+    # DOCCI 模型标准用法：必须在 prompt 开头加 <image> 占位符
+    # PaliGemma2 是因果 LM，输出序列 = 输入 token + 生成 token
+    # 必须切掉 input_len 之前的部分，否则解码出来会重复 prompt 内容
+    prompt = "<image>"
+    inputs = processor(text=prompt, images=pil_img, return_tensors="pt").to(device)
+    input_len = inputs["input_ids"].shape[-1]
+
+    with torch.inference_mode():
+        ids = model.generate(
+            **inputs,
+            max_new_tokens=256,
+            do_sample=False,
+        )
+
+    # 切掉输入 token，只解码生成部分
+    generated = ids[0][input_len:]
+    raw = processor.decode(generated, skip_special_tokens=True).strip()
+
+    return {
+        "description": raw,
+        "img_w": img_w,
+        "img_h": img_h,
+    }
+
+
+@app.route('/pro-analyze', methods=['POST'])
+def pro_analyze():
+    """
+    专业模式三段流水线接口：
+      Stage 1 → PaliGemma (本地): 目标检测 + 场景描述
+      Stage 2 → Qwen-VL-Plus (云端): 制定精确拍摄方案 JSON
+      Stage 3 → 前端 VKSession 实时比对（此路由只管前两段）
+    """
+    try:
+        file = request.files.get('file')
+        if not file:
+            return jsonify({"error": "未上传文件"}), 400
+
+        # 从前端传来的实时传感器数据
+        tilt_angle = float(request.form.get('tilt_angle', 0))   # Roll，正=右倾
+        pitch_angle = float(request.form.get('pitch_angle', 0)) # Pitch，正=仰拍
+        est_distance = request.form.get('estimated_distance', '未知')
+
+        filename = f"pro_{int(time.time())}_{secure_filename(file.filename)}"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+
+        with open(filepath, 'rb') as f:
+            image_bytes = f.read()
+        img_base64 = base64.b64encode(image_bytes).decode()
+
+        # ── Stage 1: PaliGemma2-DOCCI 密集场景描述 (本地推理) ──────────
+        # DOCCI 微调版输出高质量自然语言描述（人物姿态/光照/背景/构图），
+        # 作为 Qwen 的上下文，比原始 BBox 坐标更有利于制定拍摄方案。
+        pg_context = "（PaliGemma 未加载，由 Qwen 直接做视觉分析）"
+        pg_active = False
+
+        try:
+            pg = _paligemma_infer(image_bytes)
+            pg_context = (
+                f"【PaliGemma2-DOCCI 场景描述（本地推理）】\n"
+                f"  {pg['description']}\n"
+                f"  （图像尺寸: {pg['img_w']}×{pg['img_h']}px）"
+            )
+            pg_active = True
+        except Exception as pg_err:
+            pg_context = f"（PaliGemma 降级原因: {str(pg_err)[:120]}）"
+
+        # ── Stage 2: Qwen-VL-Plus 制定精确拍摄方案 (云端) ──────────────
+        # 传感器纠正提示：正值=右倾=需向左转
+        tilt_desc = (
+            f"右倾 {tilt_angle:.1f}°，需向左旋转 {tilt_angle:.1f}° 来纠正"
+            if tilt_angle > 0.5
+            else f"左倾 {abs(tilt_angle):.1f}°，需向右旋转 {abs(tilt_angle):.1f}° 来纠正"
+            if tilt_angle < -0.5
+            else "水平良好"
+        )
+
+        qwen_prompt = f"""你是专业摄影导师，请综合传感器数据与图像，制定一份严格的 JSON 拍摄方案。
+
+{pg_context}
+
+【实时传感器快照】
+  水平倾斜 Roll: {tilt_angle:+.1f}°  （{tilt_desc}）
+  俯仰角 Pitch:  {pitch_angle:+.1f}°  （正值=仰拍，负值=俯拍）
+  当前估算距离:  {est_distance}
+
+【输出要求】
+严格只返回合法 JSON，禁止 markdown 包裹，所有坐标为归一化值 [0,1]（左上角原点）：
+{{
+  "target_keypoints": {{
+    "nose":            [0.50, 0.26],
+    "left_shoulder":   [0.37, 0.44],
+    "right_shoulder":  [0.63, 0.44],
+    "left_hip":        [0.40, 0.64],
+    "right_hip":       [0.60, 0.64],
+    "left_wrist":      [0.30, 0.62],
+    "right_wrist":     [0.70, 0.62]
+  }},
+  "pose_instruction": "挺胸，下巴微收，双肩自然下沉",
+  "voice_guide": "向左移15厘米，抬高手机3厘米让头顶进入画面",
+  "rotation_hint": {{
+    "direction": "left",
+    "degrees": 2.3,
+    "reason": "当前右倾 2.3°，向左旋转手机可纠正"
+  }},
+  "distance_hint": {{
+    "action": "move_back",
+    "cm": 25,
+    "reason": "主体人物占画面过大，后退 25cm 可纳入全身"
+  }},
+  "framing_score": 58,
+  "lighting_note": "左侧光源不足，建议侧身约 30° 使自然光从左前方补充"
+}}
+请根据图像主体的真实位置精确填写 target_keypoints，不要给默认值。"""
+
+        img_data_url = f"data:image/jpeg;base64,{img_base64}"
+        local_client = OpenAI(api_key=ALIYUN_API_KEY, base_url=ALIYUN_BASE_URL)
+
+        completion = local_client.chat.completions.create(
+            model="qwen-vl-plus",
+            messages=[{"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": img_data_url}},
+                {"type": "text", "text": qwen_prompt},
+            ]}],
+            max_tokens=700,
+        )
+
+        raw = completion.choices[0].message.content.strip()
+        backticks = chr(96) * 3
+        raw = raw.replace(backticks + "json", "").replace(backticks, "").strip()
+        plan = json.loads(raw)
+
+        return jsonify({
+            "code": 200,
+            "data": {
+                "plan": plan,
+                "paligemma_active": pg_active,
+                "sensor_snapshot": {
+                    "tilt": tilt_angle,
+                    "pitch": pitch_angle,
+                    "distance": est_distance,
+                },
+            }
+        })
+
+    except json.JSONDecodeError:
+        return jsonify({"code": 500, "error": "Qwen 返回了非法 JSON，请重试", "data": None}), 500
+    except Exception as e:
+        return jsonify({"code": 500, "error": str(e), "data": None}), 500
+
+
+# -------------------------------------------
+
+# --- 3. 工具与分析模块 ---
 @app.route('/generate-sketch', methods=['POST'])
 def generate_sketch():
     file = request.files.get('file')
@@ -328,40 +745,81 @@ def generate_sketch():
         })
 
     except Exception as e:
-        print(f"Sketch generation error: {e}")
         return jsonify({"error": f"线稿生成失败: {str(e)}"}), 500
 
 
-# --- 3. 环境分析模块 ---
+# --- 4. 环境分析模块 ---
 @app.route('/analyze-env', methods=['POST'])
 def analyze_env():
-    file = request.files.get('file')
-    if not file: return jsonify({"error": "未上传文件"}), 400
-
-    filename = f"env_{int(time.time())}.jpg"
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
-
-    with open(filepath, "rb") as f:
-        img_base64 = base64.b64encode(f.read()).decode()
-
+    """环境分析接口 - 支持AI分析和语音合成"""
     try:
-        completion = client.chat.completions.create(
+        file = request.files.get('file')
+        if not file:
+            return jsonify({"error": "未上传文件"}), 400
+
+        filename = f"env_{int(time.time())}_{secure_filename(file.filename)}"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+
+        with open(filepath, "rb") as f:
+            img_base64 = base64.b64encode(f.read()).decode()
+        img_data_url = f"data:image/jpeg;base64,{img_base64}"
+
+        local_client = OpenAI(api_key=ALIYUN_API_KEY, base_url=ALIYUN_BASE_URL)
+        completion = local_client.chat.completions.create(
             model="qwen-vl-plus",
             messages=[
-                {"role": "user", "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"}},
-                    {"type": "text", "text": "分析环境照片，给出自拍构图、角度、光线建议，50字以内。"}
-                ]},
-            ]
+                {
+                    "role": "system",
+                    "content": "你是一个环境分析专家。请分析图片中的环境状况，给出实用的改善建议。关注构图、光线、背景、角度。回复80字以内，建议要具体可执行。"
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": img_data_url}},
+                        {"type": "text", "text": "请分析这张环境照片，给出具体改善建议。"}
+                    ]
+                },
+            ],
+            temperature=0.7,
+            max_tokens=400,
         )
+
         advice = completion.choices[0].message.content.strip()
-        return jsonify({"advice": advice, "imageUrl": build_file_url('uploads', filename)})
+
+        response_data = {
+            "advice": advice,
+            "imageUrl": build_file_url('uploads', filename),
+            "audioUrl": None
+        }
+
+        # 生成语音建议
+        try:
+            audio_result = baidu_client.synthesis(advice, 'zh', 1, {
+                'vol': 7,
+                'per': 4,
+                'spd': 5,
+                'pit': 5,
+            })
+
+            if not isinstance(audio_result, dict):
+                audio_filename = f"env_advice_{int(time.time())}.mp3"
+                audio_filepath = os.path.join(AUDIO_FOLDER, audio_filename)
+
+                with open(audio_filepath, 'wb') as f:
+                    f.write(audio_result)
+
+                response_data["audioUrl"] = build_file_url('static/audio', audio_filename)
+        except Exception:
+            pass
+
+        return jsonify(response_data)
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"分析失败: {str(e)}"}), 500
 
 
-# --- 4. 图像评分与模板存取模块 ---
+# --- 5. 图像评分与模板存取模块 ---
 @app.route('/analyze-template', methods=['POST'])
 def analyze_template():
     file = request.files.get('file')
@@ -418,7 +876,7 @@ def delete_template():
         return jsonify({"error": str(e)}), 500
 
 
-# --- 5. 静态资源路由 ---
+# --- 静态资源路由 ---
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
@@ -488,5 +946,227 @@ def change_password():
     return jsonify({"error": message}), 400
 
 
+# ================================================================
+# 骨骼追踪：YOLOv8n-pose 推理接口
+# 接收：multipart/form-data  file=<JPEG>
+# 返回：{ "keypoints": [{x,y,score}, ...] }（COCO-17，坐标已归一化 0~1）
+# ================================================================
+@app.route('/detect-pose', methods=['POST'])
+def detect_pose():
+    if 'file' not in request.files:
+        return jsonify({'error': 'no file'}), 400
+
+    img_bytes = request.files['file'].read()
+    img_array = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+    if img is None:
+        return jsonify({'error': 'invalid image'}), 400
+
+    try:
+        model = _get_pose_model()
+        results = model(img, verbose=False)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    if not results or results[0].keypoints is None:
+        return jsonify({'keypoints': None})
+
+    kps_obj = results[0].keypoints
+    if kps_obj.xyn is None or len(kps_obj.xyn) == 0:
+        return jsonify({'keypoints': None})
+
+    # xyn: 归一化坐标 (0~1)，shape (n_persons, 17, 2)
+    # conf: 置信度，shape (n_persons, 17)
+    xy  = kps_obj.xyn[0].tolist()
+    conf = kps_obj.conf[0].tolist() if kps_obj.conf is not None else [1.0] * 17
+
+    keypoints = [
+        {'x': float(xy[i][0]), 'y': float(xy[i][1]), 'score': float(conf[i])}
+        for i in range(17)
+    ]
+    return jsonify({'keypoints': keypoints})
+
+
+# =========================================================================
+# 地铁模式：转辙机遗留物（FOD）检测
+#   安全闸门定性：fail-safe + 宁可误报不可漏报 + 全链路可追溯
+#   三路并联：路A 闭集 YOLO / 路B 基准差分 / 路C 异常兜底(二期)
+# =========================================================================
+
+@app.route('/metro/models', methods=['GET'])
+def metro_models():
+    """返回型号族映射，供前端选择器与后端登记校验保持同步。"""
+    return jsonify({"families": METRO_MODELS})
+
+
+@app.route('/metro/device/<device_code>', methods=['GET'])
+def metro_get_device(device_code):
+    """扫码后拉取设备信息 + 基准就绪状态。"""
+    dev = get_device(device_code)
+    if not dev:
+        return jsonify({"exists": False}), 404
+    # 不外泄基准图文件名细节以外的存储路径
+    dev["baseline_ready"] = bool(dev.get("baseline_version", 0) and dev.get("baseline_image"))
+    return jsonify({"exists": True, "device": dev})
+
+
+@app.route('/metro/devices/register', methods=['POST'])
+def metro_register_device():
+    """登记/更新转辙机；可选上传基准空腔图（multipart: baseline=<JPEG>）。"""
+    device_code = (request.form.get('device_code') or '').strip()
+    model = (request.form.get('model') or '').strip()
+    station = request.form.get('station')
+    location = request.form.get('location')
+
+    if not device_code or not model:
+        return jsonify({"error": "device_code 与 model 必填"}), 400
+
+    family = resolve_family(model)
+
+    baseline_name = None
+    baseline_file = request.files.get('baseline')
+    if baseline_file:
+        baseline_name = f"baseline_{secure_filename(device_code)}_{int(time.time())}.jpg"
+        baseline_file.save(os.path.join(METRO_BASELINE_FOLDER, baseline_name))
+
+    ok, msg = upsert_device(device_code, family, model, station, location,
+                            baseline_image=baseline_name)
+    if not ok:
+        return jsonify({"error": msg}), 500
+    return jsonify({"success": True, "message": msg, "family": family,
+                    "baseline_uploaded": baseline_name is not None})
+
+
+@app.route('/metro/detect', methods=['POST'])
+def metro_detect():
+    """核心检测接口。
+
+    multipart: file=<现场内部照片>
+    form: device_code, worker_id, captured_at, offline_flag(可选)
+    返回红黄绿结论 + 标注图 + 三路命中明细，并落库为证据。
+    """
+    file = request.files.get('file')
+    if not file:
+        return jsonify({"error": "未上传文件"}), 400
+
+    device_code = (request.form.get('device_code') or '').strip()
+    worker_id = request.form.get('worker_id') or ''
+    captured_at = request.form.get('captured_at') or ''
+    offline_flag = request.form.get('offline_flag') in ('1', 'true', 'True')
+
+    image_bytes = file.read()
+
+    # 取该设备型号对应的基准图（路B）；无设备/无基准则路B 跳过，融合层降级 REVIEW
+    device = get_device(device_code) if device_code else None
+    baseline_bytes = None
+    baseline_version = 0
+    device_model = None
+    station = None
+    if device:
+        device_model = device.get('model')
+        station = device.get('station')
+        baseline_version = device.get('baseline_version', 0) or 0
+        bname = device.get('baseline_image')
+        if bname and baseline_version > 0:
+            bpath = os.path.join(METRO_BASELINE_FOLDER, bname)
+            if os.path.exists(bpath):
+                with open(bpath, 'rb') as bf:
+                    baseline_bytes = bf.read()
+
+    # 跑三路检测 + 融合
+    try:
+        det = run_detection(image_bytes, baseline_bytes)
+    except Exception as e:
+        # 服务异常一律 fail-safe 降级，绝不放行
+        return jsonify({
+            "result": RESULT_REVIEW,
+            "message": f"检测服务异常，已降级人工复核：{str(e)[:120]}",
+            "detections": [],
+        }), 200
+
+    trace_id = uuid.uuid4().hex
+    ts = int(time.time())
+
+    # 落盘原图（证据）
+    image_name = f"metro_{trace_id}_{ts}.jpg"
+    with open(os.path.join(METRO_EVIDENCE_FOLDER, image_name), 'wb') as f:
+        f.write(image_bytes)
+
+    # 落盘标注图（如有命中）
+    annotated_name = None
+    if det.get("annotated_bytes"):
+        annotated_name = f"metro_{trace_id}_{ts}_annotated.jpg"
+        with open(os.path.join(METRO_EVIDENCE_FOLDER, annotated_name), 'wb') as f:
+            f.write(det["annotated_bytes"])
+
+    # 写入证据链
+    rec = {
+        "trace_id": trace_id,
+        "worker_id": worker_id,
+        "device_code": device_code,
+        "device_model": device_model,
+        "station": station,
+        "image_file": image_name,
+        "annotated_file": annotated_name,
+        "result": det["result"],
+        "quality_score": det["quality_score"],
+        "detections": det["detections"],
+        "baseline_version": baseline_version,
+        "offline_flag": offline_flag,
+        "captured_at": captured_at,
+    }
+    insert_inspection(rec)
+
+    base = request.host_url.rstrip('/')
+    return jsonify({
+        "trace_id": trace_id,
+        "result": det["result"],
+        "message": det["message"],
+        "quality_score": det["quality_score"],
+        "detections": det["detections"],
+        "baseline_version": baseline_version,
+        "image_url": f"{base}/metro-file/{image_name}",
+        "annotated_url": f"{base}/metro-file/{annotated_name}" if annotated_name else None,
+    })
+
+
+@app.route('/metro/inspection/<trace_id>/confirm', methods=['POST'])
+def metro_confirm(trace_id):
+    """人工复核回写，闭环 REVIEW/BLOCKED。"""
+    data = request.get_json(silent=True) or {}
+    confirmed_by = data.get('confirmed_by') or request.form.get('confirmed_by') or ''
+    action = data.get('confirm_action') or request.form.get('confirm_action') or ''
+    if not action:
+        return jsonify({"error": "confirm_action 必填(如: 确认安全/已取出工具)"}), 400
+    ok, msg = confirm_inspection(trace_id, confirmed_by, action)
+    if not ok:
+        return jsonify({"error": msg}), 404
+    return jsonify({"success": True, "message": msg})
+
+
+@app.route('/metro/inspections', methods=['GET'])
+def metro_list():
+    """审计查询，支持 device_code / worker_id / result 过滤。"""
+    rows = list_inspections(
+        device_code=request.args.get('device_code'),
+        worker_id=request.args.get('worker_id'),
+        result=request.args.get('result'),
+        limit=int(request.args.get('limit', 100)),
+    )
+    base = request.host_url.rstrip('/')
+    for r in rows:
+        if r.get('image_file'):
+            r['image_url'] = f"{base}/metro-file/{r['image_file']}"
+        if r.get('annotated_file'):
+            r['annotated_url'] = f"{base}/metro-file/{r['annotated_file']}"
+    return jsonify({"items": rows, "count": len(rows)})
+
+
+@app.route('/metro-file/<filename>')
+def metro_file(filename):
+    """读取检测证据图/标注图。"""
+    return send_from_directory(METRO_EVIDENCE_FOLDER, filename)
+
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True, threaded=True)

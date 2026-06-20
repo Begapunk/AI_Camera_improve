@@ -8,7 +8,8 @@
     "pages/environment/index",
     "pages/template/index",
     "pages/template/templateCollection",
-    "pages/ar/index"
+    "pages/profile/index",
+    "pages/metro/index"
   ],
   "window": {
     "navigationBarTextStyle": "black",

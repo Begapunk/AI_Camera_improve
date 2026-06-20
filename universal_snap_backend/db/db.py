@@ -14,10 +14,9 @@ try:
     from settings import DB_CONFIG
 except ImportError:
     # 如果没改名，依然叫 config
-    import config
+    from config import DB_CONFIG
 
 from werkzeug.security import generate_password_hash, check_password_hash
-
 
 # ... 剩下的代码保持不变 ...
 
@@ -58,7 +57,6 @@ def get_all_photo_analyses():
         except:
             pass
 
-
 def delete_photo_analysis(template_id):
     try:
         conn = pymysql.connect(**DB_CONFIG)
@@ -83,8 +81,7 @@ def delete_photo_analysis(template_id):
         except:
             pass
 
-
-# 注册和登陆
+#注册和登陆
 def register_user(username, password):
     try:
         conn = pymysql.connect(**DB_CONFIG)
@@ -106,7 +103,6 @@ def register_user(username, password):
             conn.close()
         except:
             pass
-
 
 def verify_user(username, password):
     try:
@@ -136,7 +132,10 @@ def get_user_info(username):
     try:
         conn = pymysql.connect(**DB_CONFIG)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
-        cursor.execute("SELECT id, username, nickname, avatar, create_time FROM users WHERE username = %s", (username,))
+        cursor.execute(
+            "SELECT id, username, nickname, avatar, face_registered, create_time FROM users WHERE username = %s",
+            (username,)
+        )
         result = cursor.fetchone()
         return result
     except Exception as e:
@@ -154,25 +153,25 @@ def update_user_info(username, nickname=None, avatar=None):
     try:
         conn = pymysql.connect(**DB_CONFIG)
         cursor = conn.cursor()
-
+        
         updates = []
         params = []
-
+        
         if nickname is not None:
             updates.append("nickname = %s")
             params.append(nickname)
         if avatar is not None:
             updates.append("avatar = %s")
             params.append(avatar)
-
+        
         if not updates:
             return False, "没有需要更新的字段"
-
+        
         params.append(username)
         sql = f"UPDATE users SET {', '.join(updates)} WHERE username = %s"
         cursor.execute(sql, tuple(params))
         conn.commit()
-
+        
         return True, "更新成功"
     except Exception as e:
         print("更新用户信息失败:", e)
@@ -189,20 +188,20 @@ def update_user_password(username, old_password, new_password):
     try:
         conn = pymysql.connect(**DB_CONFIG)
         cursor = conn.cursor()
-
+        
         cursor.execute("SELECT password_hash FROM users WHERE username = %s", (username,))
         result = cursor.fetchone()
         if not result:
             return False, "用户不存在"
-
+        
         pwd_hash = result[0]
         if not check_password_hash(pwd_hash, old_password):
             return False, "旧密码错误"
-
+        
         new_pwd_hash = generate_password_hash(new_password)
         cursor.execute("UPDATE users SET password_hash = %s WHERE username = %s", (new_pwd_hash, username))
         conn.commit()
-
+        
         return True, "密码修改成功"
     except Exception as e:
         print("修改密码失败:", e)
@@ -225,6 +224,45 @@ def get_user_by_id(user_id):
     except Exception as e:
         print("根据ID获取用户信息失败:", e)
         return None
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+
+def get_face_registered(username):
+    """查询用户是否已绑定人脸"""
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute("SELECT face_registered FROM users WHERE username = %s", (username,))
+        result = cursor.fetchone()
+        return bool(result and result[0])
+    except Exception as e:
+        print("查询人脸注册状态失败:", e)
+        return False
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+
+def mark_face_registered(username, registered=True):
+    """更新用户人脸绑定状态"""
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET face_registered = %s WHERE username = %s",
+                       (1 if registered else 0, username))
+        conn.commit()
+        return True
+    except Exception as e:
+        print("更新人脸注册状态失败:", e)
+        return False
     finally:
         try:
             cursor.close()

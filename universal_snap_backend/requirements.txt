@@ -3,3 +3,15 @@ flask-cors
 requests
 pymysql
 werkzeug
+python-dotenv
+baidu-aip
+# opencv-contrib-python 含本地人脸识别 cv2.face 子模块
+# 注意：若已安装 opencv-python，需先 pip uninstall opencv-python 再安装此包
+opencv-contrib-python
+# --- 专业模式 PaliGemma 依赖 (首次安装较大，约 5GB GPU 显存) ---
+torch
+transformers>=4.47.0
+accelerate
+Pillow
+# --- 骨骼追踪：YOLOv8n-pose（首次运行自动下载 6MB 模型到 ~/.ultralytics 缓存）---
+ultralytics

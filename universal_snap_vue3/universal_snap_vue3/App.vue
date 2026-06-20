@@ -13,5 +13,26 @@
 </script>
 
 <style>
-	/*每个页面公共css */
+	/* 每个页面公共 CSS */
+	page,
+	view,
+	scroll-view,
+	swiper,
+	button,
+	input,
+	textarea,
+	image,
+	text {
+		box-sizing: border-box;
+	}
+
+	page {
+		width: 100%;
+		min-height: 100%;
+		overflow-x: hidden;
+	}
+
+	button::after {
+		border: none;
+	}
 </style>
