@@ -13,3 +13,14 @@ __pycache__/
 
 # Node
 node_modules/
+
+# macOS
+__MACOSX/
+.DS_Store
+
+# Build output
+unpackage/
+
+# Logs
+*.log
+app.log
