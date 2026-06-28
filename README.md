@@ -1,16 +1,16 @@
 <div align="center">
 
-<h1>万能拍 · AI Camera</h1>
+# 📸 万能拍 · AI Camera
 
-<p>
-  <strong>基于 OpenCV 透明线稿重叠的移动端摄影智能引导平台</strong>
-</p>
+**基于 OpenCV 透明线稿重叠的移动端摄影智能引导平台**
+
+> 集自拍分析、智能构图、骨骼追踪、环境优化、人脸识别于一体，附带地铁转辙机 FOD 检测专业模块。
 
 <p>
   <a href="#核心功能"><img src="https://img.shields.io/badge/功能-AI构图引导-FF8C42?style=flat-square" alt="功能"/></a>
-  <a href="#技术栈"><img src="https://img.shields.io/badge/后端-Flask%20%2B%20OpenCV-4f46e5?style=flat-square" alt="后端"/></a>
-  <a href="#技术栈"><img src="https://img.shields.io/badge/前端-UniApp%20%2F%20Vue3-34C759?style=flat-square" alt="前端"/></a>
-  <a href="#技术栈"><img src="https://img.shields.io/badge/AI-PaliGemma%20%2B%20Qwen%20%2B%20Grok-FF6E61?style=flat-square" alt="AI"/></a>
+  <a href="#技术架构"><img src="https://img.shields.io/badge/后端-Flask%20%2B%20OpenCV-4f46e5?style=flat-square" alt="后端"/></a>
+  <a href="#技术架构"><img src="https://img.shields.io/badge/前端-UniApp%20%2F%20Vue3-34C759?style=flat-square" alt="前端"/></a>
+  <a href="#技术架构"><img src="https://img.shields.io/badge/AI-PaliGemma%20%2B%20Qwen%20%2B%20Grok-FF6E61?style=flat-square" alt="AI"/></a>
   <img src="https://img.shields.io/badge/platform-微信小程序-07C160?style=flat-square" alt="platform"/>
 </p>
 
@@ -18,15 +18,7 @@
 
 ---
 
-## 项目简介
-
-**万能拍**是一个专注于摄影引导的移动端全栈应用，核心创新在于将 OpenCV 生成的**透明线稿实时叠加**在相机取景框之上，为用户提供直觉式的构图参考。
-
-区别于静态的拍摄教程，本平台通过多模型 AI 链路（PaliGemma → Qwen → Grok）对相机画面进行实时分析，结合陀螺仪传感器数据，以悬浮气泡、骨骼追踪、水平仪等可视化手段，将专业摄影构图知识即时转化为可执行的动作指令。
-
----
-
-## 核心功能展示
+## 界面预览
 
 <table>
   <tr>
@@ -43,140 +35,259 @@
   </tr>
 </table>
 
-> **水平仪说明**：取景框居中显示一条动态指示线——设备倾斜时呈**橙白色**，手机达到水平对齐后自动变为**黄橙色渐变并触发振动反馈**，实现零视线转移的水平校准。
+> **水平仪**：取景框居中显示动态指示线——设备倾斜时呈**橙白色**，手机水平对齐后自动变为**黄橙色渐变并触发振动**，实现零视线转移的水平校准。
 
 ---
 
-## 特性列表
+## ✨ 核心功能
 
-### 拍摄辅助
-- **透明线稿叠加**：上传参考图片，后端经 OpenCV 提取轮廓后生成 RGBA 线稿，以 40% 透明度覆盖取景框，作为实时构图引导层
-- **水平仪**：三轴加速度计低通滤波 + 磁吸吸附（±3.5° 容差），水平时自动振动并切换配色
-- **九宫格 / 细分网格**：可切换的构图辅助线叠加层
-- **预设辅助框**：人像（椭圆）、美食、风景三种构图模板框
+### 🎨 透明线稿叠加（核心创新）
+上传参考照片，后端经 OpenCV 提取轮廓后生成 RGBA 透明线稿，以 40% 透明度实时叠加在相机取景框之上，作为直觉式构图引导层——区别于静态拍摄教程，引导随画面实时同步。
 
-### AI 智能指导
-- **智能模式（人像 / 静物 / 风光）**：每 5 秒抓帧上传，AI 返回构图建议与目标距离；构图完美时自动触发抓拍并高亮绿色边框
-- **Grok 视觉分析**：接入 xAI Grok API 进行场景理解，给出摄影师视角的创作建议
-- **语音播报**：调用百度 TTS 将 AI 建议转为语音，免手持操作
+### 🤳 智能自拍分析
+上传自拍照片，AI（Qwen-VL-Plus / Grok-2-Vision）即时给出构图、姿势、角度等方面的改进建议，支持语音合成播报。
 
-### 专业模式（三段流水线）
-1. **PaliGemma**（本地 3B 视觉模型）：场景描述与构图感知
-2. **Qwen 视觉**：生成结构化拍摄方案（`rotation_hint` / `distance_hint` / `target_keypoints` / `framing_score`）
-3. **YOLOv8n-pose 骨骼追踪**：以 5fps 的 `onCameraFrame` 硬锁架构捕捉人体 COCO-17 关键点，在 Canvas 2D 层渲染霓虹色火柴人骨架，并将实际关键点与 Qwen 方案下发的目标点以红色虚线连接，实时计算像素偏差
+### 🎯 智能构图测距
+结合手机传感器数据（倾斜角、俯仰角），AI 实时分析画面主体占比，给出精准的「靠近/远离/抬高/左移」语音级指令，支持**人像 / 静物 / 风景**三种模式。构图完美时自动触发抓拍并高亮绿色边框。
 
-### 其他模块
-- **地铁模式**：转辙机遗留物（FOD）检测，三路并联模型 + 基准差分 + 证据链存档
-- **人脸绑定**：本地 OpenCV LBPHFaceRecognizer + 云端火山引擎双重校验
-- **自拍分析 / 环境分析**：独立页面，支持历史记录查询与删除
+### 🔬 专业模式（三段流水线）
+```
+Stage 1: PaliGemma2-DOCCI (本地 GPU)  →  密集场景描述与构图感知
+Stage 2: Qwen-VL-Plus (云端)           →  结构化拍摄方案 JSON
+Stage 3: YOLOv8n-pose + Canvas 2D      →  实时骨骼关键点比对与霓虹骨架渲染
+```
+输出包含 17 点骨骼关键点坐标、姿态指令、语音引导、旋转纠正、距离建议、光照评价与构图评分。
+
+### 🦴 骨骼追踪
+YOLOv8n-pose 实时检测人体 COCO-17 关键点，采用 `onCameraFrame` 异步推理硬锁（5fps）架构，在 Canvas 2D 层渲染霓虹色火柴人骨架，实际关键点与 Qwen 目标点以红色虚线连接，实时计算像素偏差。
+
+### ⚖️ 水平仪
+三轴加速度计低通滤波 + 磁吸吸附（±3.5° 容差），水平时自动振动并切换配色（橙白 → 黄橙渐变发光）。
+
+### 🌍 环境分析
+AI 分析拍摄环境的光线、背景、构图，给出具体可执行的改善建议，支持语音合成。
+
+### 📊 模板评分
+对接火山引擎视觉智能服务，对上传照片进行美学评分，支持保存为参考、合集浏览与管理。
+
+### 👤 人脸识别登录
+本地 OpenCV LBPHFaceRecognizer + 云端火山引擎双重校验，支持人脸注册、登录、更新。
+
+### 🚇 地铁模式 · FOD 遗留物检测
+面向轨道交通场景，检测转辙机内部遗留物（工具、零件等）：
+- **三路并联检测**：YOLO 闭集检测 + 基准差分 + 异常兜底
+- **红黄绿三级结论**：fail-safe 安全闸门，宁可误报不可漏报
+- **全链路可追溯**：检测记录落库，证据可审计
 
 ---
 
-## 技术栈
+## 🏗️ 技术架构
 
-| 层级 | 技术 |
-|------|------|
-| 前端框架 | UniApp + Vue 3 Composition API（微信小程序） |
-| 后端框架 | Flask + Flask-CORS |
-| 图像处理 | OpenCV (opencv-contrib-python)，线稿生成：Canny + 透明通道合成 |
-| AI 模型 | PaliGemma2-3B（本地）、Qwen-VL（阿里云）、Grok Vision（xAI）、YOLOv8n-pose（Ultralytics） |
-| 语音合成 | 百度 AI 开放平台 AipSpeech |
-| 人脸识别 | OpenCV LBPHFaceRecognizer + 火山引擎视觉服务 |
-| 数据库 | MySQL（PyMySQL） |
-| 传感器 | 微信小程序 `uni.onAccelerometerChange` + requestAnimationFrame 帧循环 |
+```mermaid
+flowchart TB
+    subgraph 前端["🖥️ 前端 (uni-app)"]
+        direction LR
+        VUE["Vue 3"]
+        UNI["uni-ui"]
+        VK["onCameraFrame (骨骼追踪)"]
+        WX["微信小程序"]
+    end
+
+    前端 -->|"HTTP REST"| 后端
+
+    subgraph 后端["⚙️ 后端 (Flask + Python)"]
+        subgraph 业务模块["业务模块"]
+            AUTH["用户认证<br/>注册 · 登录 · 人脸 · 验证码"]
+            IMG["图像分析<br/>自拍 · 构图 · 环境 · 评分"]
+            METRO["地铁 FOD 检测<br/>设备登记 · 三路检测 · 审计"]
+        end
+        subgraph AI["🧠 AI 模型层"]
+            PALI["PaliGemma2-DOCCI<br/>本地 GPU 推理"]
+            QWEN["Qwen-VL-Plus<br/>阿里云百炼"]
+            GROK["Grok-2-Vision<br/>xAI"]
+            YOLO["YOLOv8n-pose<br/>骨骼追踪"]
+            VOLC["火山引擎<br/>图像评分"]
+            BAIDU["百度 AI<br/>人脸识别 + 语音合成"]
+        end
+        subgraph CV["🎨 OpenCV 处理层"]
+            SKETCH["透明线稿生成<br/>高斯模糊 + 颜色减淡"]
+            FACE["本地人脸识别<br/>LBPHFaceRecognizer"]
+        end
+    end
+
+    后端 -->|"读写"| 数据层
+
+    subgraph 数据层["🗄️ 数据层"]
+        DB[("MySQL")]
+        FS["文件存储"]
+        CACHE["验证码缓存"]
+    end
+```
 
 ---
 
-## 本地运行
+## 🚀 快速开始
 
 ### 环境要求
 
-- Python 3.10+（后端）
-- Node.js 18+（前端构建）
-- HBuilderX（UniApp 开发工具）
-- MySQL 5.7+
+| 组件 | 版本要求 |
+|------|---------|
+| Python | ≥ 3.10 |
+| Node.js | ≥ 16 |
+| CUDA（可选） | ≥ 11.8（GPU 推理需要） |
+| MySQL | ≥ 5.7 |
+| HBuilderX | 最新版（小程序开发工具） |
 
-### 后端启动
+### 1. 克隆项目
+
+```bash
+git clone https://github.com/Begapunk/AI_Camera_improve.git
+cd AI_Camera_improve
+```
+
+### 2. 后端部署
 
 ```bash
 cd universal_snap_backend
 
-# 安装依赖（首次安装 PaliGemma 依赖约 5GB，可跳过 torch/transformers 仅使用云端模型）
+# 创建虚拟环境
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+# 安装依赖（首次安装 PaliGemma 依赖约 5GB，可跳过 torch/transformers 仅用云端模型）
 pip install -r requirements.txt
 
-# 配置环境变量（复制 settings.py 并填写各平台 API Key）
-cp settings.py.example settings.py
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 填写各平台 API Key（详见下方环境变量说明）
 
-# 启动 Flask 开发服务器
+# 初始化数据库
+mysql -u root -p < init_db.sql
+
+# 启动后端服务
 python app.py
 ```
 
-> 骨骼追踪模型（`yolov8n-pose.pt` ~6MB）在首次调用 `/detect-pose` 接口时自动下载至 `~/.ultralytics` 缓存目录。
+> YOLOv8n-pose 模型（~6MB）在首次调用 `/detect-pose` 时自动下载至 `~/.ultralytics` 缓存目录。
 
-### 前端配置
+### 3. 前端部署
 
-1. 用 HBuilderX 打开 `universal_snap_vue3/universal_snap_vue3/`
-2. 修改 `.env.development` 中的 `VITE_BASE_URL` 为后端局域网地址（如 `http://192.168.x.x:5000`）
-3. 运行 → 运行到小程序模拟器 → 微信开发者工具
+```bash
+cd universal_snap_vue3/universal_snap_vue3
+
+npm install
+
+# 用 HBuilderX 打开项目，配置小程序 AppID
+# 运行 → 运行到小程序模拟器 → 微信开发者工具
+```
+
+### 4. 模型准备（可选）
+
+- **PaliGemma2-DOCCI**：将模型放置于 `paligemma2-3b-ft-docci-448/` 目录，或在 `.env` 中配置 `PALIGEMMA_MODEL_PATH`
+- **YOLOv8n-pose**：首次运行自动下载（约 6MB）
 
 ---
 
-## 目录结构
+## 📁 项目结构
 
 ```
-CZCamera/
-├── universal_snap_backend/     # Flask 后端
-│   ├── app.py                  # 主路由（/analyze, /pro-analyze, /detect-pose 等）
-│   ├── metro/                  # 地铁 FOD 检测模块
-│   ├── db/                     # MySQL 数据访问层
-│   ├── Face_ID.py              # 人脸识别管理器
-│   └── requirements.txt
-├── universal_snap_vue3/        # UniApp 前端
+AI_Camera_improve/
+├── universal_snap_vue3/         # 前端 uni-app 项目
 │   └── universal_snap_vue3/
-│       └── pages/
-│           ├── camera/         # 相机主页（水平仪、线稿叠加、骨骼追踪）
-│           ├── home/           # 首页导航
-│           ├── analyze/        # 自拍分析
-│           ├── environment/    # 环境分析
-│           ├── metro/          # 地铁模式
-│           └── template/       # 构图评分
-├── paligemma2-3b-ft-docci-448/ # 本地 PaliGemma 模型权重
-└── docs/
-    └── images/                 # 界面预览图
+│       ├── pages/               # 页面模块
+│       │   ├── login/           # 登录 & 注册
+│       │   ├── home/            # 主页
+│       │   ├── camera/          # 智能拍摄（水平仪、线稿叠加、骨骼追踪）
+│       │   ├── analyze/         # 自拍分析
+│       │   ├── environment/     # 环境分析
+│       │   ├── template/        # 模板评分
+│       │   ├── metro/           # 地铁 FOD 检测
+│       │   ├── profile/         # 个人中心
+│       │   └── ar/              # AR 实时引导
+│       ├── static/              # 静态资源
+│       └── utils/               # 工具函数
+│
+├── universal_snap_backend/      # 后端 Flask 项目
+│   ├── app.py                   # 主应用入口 & API 路由
+│   ├── Face_ID.py               # 人脸识别封装
+│   ├── face_local.py            # 本地人脸识别
+│   ├── config.py / settings.py  # 配置管理
+│   ├── db/                      # 数据库操作
+│   │   ├── db.py                # 用户 & 照片分析
+│   │   └── metro_db.py          # 地铁检测记录
+│   ├── metro/                   # 地铁 FOD 检测核心
+│   ├── security/                # 密码安全校验
+│   ├── uploads/                 # 上传文件存储
+│   └── static/audio/            # 语音合成文件
+│
+├── paligemma2-3b-ft-docci-448/  # PaliGemma 本地模型
+├── docs/images/                 # 界面预览图（SVG）
+├── modeltest.py                 # 模型测试脚本
+└── replacements.txt             # 文本替换配置
 ```
 
 ---
 
-## 架构说明
+## 🔌 核心 API 一览
 
-### 透明线稿叠加流程
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/captcha` | GET | 获取数学验证码 |
+| `/register` | POST | 用户注册（含人脸） |
+| `/login` | POST | 密码登录 |
+| `/login-face` | POST | 人脸登录 |
+| `/analyze` | POST | 自拍分析（Qwen-VL） |
+| `/analyze-grok` | POST | 自拍分析（Grok） |
+| `/smart-analyze` | POST | 智能构图测距 |
+| `/pro-analyze` | POST | 专业模式三段流水线 |
+| `/detect-pose` | POST | YOLOv8 骨骼关键点检测 |
+| `/generate-sketch` | POST | OpenCV 透明线稿生成 |
+| `/analyze-env` | POST | 环境分析 |
+| `/analyze-template` | POST | 图像美学评分 |
+| `/api/templates` | GET | 参考列表 |
+| `/metro/detect` | POST | 地铁 FOD 检测 |
+| `/metro/devices/register` | POST | 转辙机设备登记 |
 
-```
-用户上传参考图
-      ↓
-Flask: OpenCV 灰度化 → 反色模糊 → dodge混合生成铅笔素描
-      ↓ 白色区域 alpha→0（透明）
-生成 RGBA PNG → 返回 URL
-      ↓
-前端 <cover-image> 以 40% opacity 叠加在相机 cover-view 层
-```
+---
 
-### 专业模式帧处理架构
+## ⚙️ 环境变量配置
 
-骨骼追踪采用 `onCameraFrame` + 异步推理硬锁（`_isDetecting` flag）方案，规避了原生 VKSession 因底层 GPU 持续满载导致的设备过热问题：
+在 `universal_snap_backend/.env` 中配置：
 
-```
-onCameraFrame → _isDetecting 硬锁 → 200ms 节流
-      ↓
-ArrayBuffer(RGBA) → OffscreenCanvas → JPEG 60%
-      ↓
-Flask /detect-pose → YOLOv8n-pose → COCO-17 归一化坐标
-      ↓
-EMA 平滑 (α=0.3) → Canvas 2D 霓虹骨架绘制（完全绕过 Vue 响应式）
+```env
+# 百度 AI（人脸识别 + 语音合成）
+BAIDU_APP_ID=your_app_id
+BAIDU_API_KEY=your_api_key
+BAIDU_SECRET_KEY=your_secret_key
+
+# 阿里云百炼（Qwen-VL-Plus）
+ALIYUN_API_KEY=your_api_key
+ALIYUN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+
+# 火山引擎（图像评分）
+VOLC_IA_AK=your_access_key
+VOLC_IA_SK=your_secret_key
+
+# xAI Grok（可选）
+GROK_API_KEY=your_grok_key
+
+# PaliGemma 本地模型路径
+PALIGEMMA_MODEL_PATH=paligemma2-3b-ft-docci-448
+
+# MySQL 数据库
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=snap_db
+DB_PORT=3306
 ```
 
 ---
 
-## License
+## 📄 License
 
-MIT
+MIT License
+
+---
+
+> 💡 本项目为微信小程序，需配合 HBuilderX 开发工具使用。后端依赖多个第三方 AI 服务，请确保各平台 API Key 已正确配置。
