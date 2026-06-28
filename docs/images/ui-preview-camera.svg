@@ -1,0 +1,175 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" width="390" height="844">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff8f0"/>
+      <stop offset="100%" stop-color="#fff0e6"/>
+    </linearGradient>
+    <linearGradient id="footerGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.96)"/>
+      <stop offset="100%" stop-color="rgba(255,248,240,0.92)"/>
+    </linearGradient>
+    <linearGradient id="shutterGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFB25B"/>
+      <stop offset="100%" stop-color="#FF7E5F"/>
+    </linearGradient>
+    <linearGradient id="modeActiveGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFB25B"/>
+      <stop offset="100%" stop-color="#FF7E5F"/>
+    </linearGradient>
+    <!-- Level line: leveled = yellow-orange glow -->
+    <linearGradient id="leveledLineGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FFB347"/>
+      <stop offset="100%" stop-color="#FF8C42"/>
+    </linearGradient>
+    <filter id="levelGlow">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="hudShadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.06"/>
+    </filter>
+    <filter id="bubbleShadow">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.08"/>
+    </filter>
+    <filter id="proGlow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#4f46e5" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Phone background -->
+  <rect x="0" y="0" width="390" height="844" rx="44" ry="44" fill="url(#bgGrad)"/>
+  <rect x="0" y="0" width="390" height="844" rx="44" ry="44" fill="none" stroke="#e0d5cc" stroke-width="1"/>
+
+  <!-- ========= CAMERA VIEWFINDER ========= -->
+  <rect x="0" y="0" width="390" height="540" rx="0" ry="0" fill="#1a1a1e"/>
+  <!-- Bottom radius of viewfinder -->
+  <path d="M0 514 Q0 540 26 540 L364 540 Q390 540 390 514 L390 480 L0 480 Z" fill="#1a1a1e"/>
+
+  <!-- Status bar overlay -->
+  <rect x="0" y="0" width="390" height="50" fill="rgba(26,26,30,0.6)"/>
+  <text x="24" y="34" font-family="-apple-system,sans-serif" font-size="14" font-weight="600" fill="white">9:41</text>
+  <rect x="155" y="12" width="80" height="26" rx="13" fill="#1a1a1e"/>
+  <text x="350" y="34" font-family="-apple-system,sans-serif" font-size="12" fill="rgba(255,255,255,0.8)">●●●</text>
+
+  <!-- Nine-grid lines -->
+  <line x1="130" y1="50" x2="130" y2="540" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
+  <line x1="260" y1="50" x2="260" y2="540" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
+  <line x1="0" y1="210" x2="390" y2="210" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
+  <line x1="0" y1="380" x2="390" y2="380" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
+
+  <!-- HUD Panel (top-left) -->
+  <rect x="16" y="68" width="178" height="74" rx="14" fill="rgba(255,248,240,0.88)" filter="url(#hudShadow)"/>
+  <rect x="16" y="68" width="178" height="74" rx="14" fill="none" stroke="rgba(255,205,165,0.6)" stroke-width="1"/>
+  <text x="30" y="90" font-family="monospace,sans-serif" font-size="11" font-weight="600" fill="#EF6C3E">↔️ 左右倾角: 0°</text>
+  <text x="30" y="108" font-family="monospace,sans-serif" font-size="11" font-weight="600" fill="#EF6C3E">↕️ 前后俯仰: 2°</text>
+  <text x="30" y="126" font-family="monospace,sans-serif" font-size="11" font-weight="600" fill="#EF6C3E">📏 估算距离: 1.80m</text>
+
+  <!-- ========= LEVEL INDICATOR (Center of viewfinder) ========= -->
+  <!-- Cross center mark (orange) -->
+  <line x1="195" y1="278" x2="195" y2="308" stroke="rgba(255,140,66,0.9)" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="180" y1="293" x2="210" y2="293" stroke="rgba(255,140,66,0.9)" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Dynamic level line: LEVELED state = yellow-orange gradient with glow -->
+  <!-- This shows the "leveled" appearance with yellow-orange color -->
+  <line x1="95" y1="293" x2="295" y2="293"
+        stroke="url(#leveledLineGrad)" stroke-width="3.5"
+        stroke-linecap="round" filter="url(#levelGlow)" opacity="0.95"/>
+
+  <!-- Level state label -->
+  <rect x="130" y="308" width="130" height="22" rx="11" fill="rgba(255,179,71,0.2)"/>
+  <text x="195" y="323" font-family="-apple-system,sans-serif" font-size="11" font-weight="600" fill="#FF8C42" text-anchor="middle">⚖️ 水平对齐</text>
+
+  <!-- Tilted state comparison (top-right corner callout) -->
+  <rect x="248" y="68" width="126" height="82" rx="12" fill="rgba(26,26,30,0.75)"/>
+  <rect x="248" y="68" width="126" height="82" rx="12" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+  <text x="311" y="86" font-family="-apple-system,sans-serif" font-size="10" fill="rgba(255,255,255,0.5)" text-anchor="middle">未对准（白色）</text>
+  <!-- Tilted line: white/dim -->
+  <line x1="265" y1="118" x2="375" y2="108"
+        stroke="rgba(255,140,66,0.55)" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Cross mark small -->
+  <line x1="319" y1="108" x2="319" y2="120" stroke="rgba(255,140,66,0.55)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="313" y1="114" x2="325" y2="114" stroke="rgba(255,140,66,0.55)" stroke-width="2" stroke-linecap="round"/>
+  <text x="311" y="140" font-family="-apple-system,sans-serif" font-size="10" fill="rgba(255,255,255,0.5)" text-anchor="middle">对准后（黄色）</text>
+
+  <!-- Arrow pointing to leveled state -->
+  <line x1="248" y1="148" x2="225" y2="293" stroke="rgba(255,179,71,0.5)" stroke-width="1" stroke-dasharray="4,3"/>
+  <polygon points="221,293 229,289 229,297" fill="rgba(255,179,71,0.5)"/>
+
+  <!-- AI Bubble -->
+  <rect x="32" y="458" width="326" height="52" rx="26" fill="rgba(255,255,255,0.97)" filter="url(#bubbleShadow)"/>
+  <rect x="32" y="458" width="326" height="52" rx="26" fill="none" stroke="rgba(255,205,165,0.6)" stroke-width="1"/>
+  <text x="195" y="489" font-family="-apple-system,sans-serif" font-size="13" font-weight="500" fill="#EF6C3E" text-anchor="middle">🧠 建议将镜头稍向左倾斜5°</text>
+
+  <!-- Sketch overlay (transparent) - visible on edge -->
+  <!-- Human silhouette sketch overlay hint -->
+  <ellipse cx="195" cy="200" rx="28" ry="36" fill="none" stroke="rgba(255,140,66,0.35)" stroke-width="1.5" stroke-dasharray="6,4"/>
+  <line x1="195" y1="236" x2="195" y2="330" stroke="rgba(255,140,66,0.3)" stroke-width="1.5" stroke-dasharray="6,4"/>
+  <line x1="162" y1="260" x2="228" y2="260" stroke="rgba(255,140,66,0.3)" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+  <!-- ========= FOOTER ========= -->
+  <rect x="0" y="540" width="390" height="304" fill="url(#footerGrad)"/>
+  <line x1="0" y1="540" x2="390" y2="540" stroke="rgba(255,245,230,0.8)" stroke-width="1"/>
+
+  <!-- Mode selector row -->
+  <!-- 拍人 mode (active) -->
+  <rect x="12" y="552" width="68" height="32" rx="16" fill="url(#modeActiveGrad)"/>
+  <text x="46" y="573" font-family="-apple-system,sans-serif" font-size="13" font-weight="600" fill="white" text-anchor="middle">👤 拍人</text>
+  <!-- Other modes -->
+  <rect x="88" y="552" width="68" height="32" rx="16" fill="rgba(255,248,240,0.8)"/>
+  <text x="122" y="573" font-family="-apple-system,sans-serif" font-size="13" fill="#9CA8B8" text-anchor="middle">🍎 拍物</text>
+  <rect x="164" y="552" width="68" height="32" rx="16" fill="rgba(255,248,240,0.8)"/>
+  <text x="198" y="573" font-family="-apple-system,sans-serif" font-size="13" fill="#9CA8B8" text-anchor="middle">🏔️ 拍景</text>
+  <rect x="240" y="552" width="60" height="32" rx="16" fill="rgba(255,248,240,0.8)"/>
+  <text x="270" y="573" font-family="-apple-system,sans-serif" font-size="13" fill="#9CA8B8" text-anchor="middle">🚫 自由</text>
+  <rect x="308" y="552" width="72" height="32" rx="16" fill="rgba(255,248,240,0.8)"/>
+  <text x="344" y="573" font-family="-apple-system,sans-serif" font-size="13" fill="#9CA8B8" text-anchor="middle">🔬 专业</text>
+
+  <!-- Tools row -->
+  <!-- 翻转 -->
+  <g transform="translate(20,598)">
+    <text x="0" y="30" font-family="-apple-system,sans-serif" font-size="24" fill="#FF8C42">🔄</text>
+    <text x="12" y="50" font-family="-apple-system,sans-serif" font-size="11" fill="#9CA8B8" text-anchor="middle">翻转</text>
+  </g>
+  <!-- 闪光 -->
+  <g transform="translate(70,598)">
+    <text x="0" y="30" font-family="-apple-system,sans-serif" font-size="24" fill="#FF8C42">⚡</text>
+    <text x="12" y="50" font-family="-apple-system,sans-serif" font-size="11" fill="#9CA8B8" text-anchor="middle">关</text>
+  </g>
+  <!-- 模板 -->
+  <g transform="translate(118,598)">
+    <text x="0" y="30" font-family="-apple-system,sans-serif" font-size="24" fill="#FF8C42">🖼️</text>
+    <text x="12" y="50" font-family="-apple-system,sans-serif" font-size="11" fill="#9CA8B8" text-anchor="middle">模板</text>
+  </g>
+  <!-- Grok -->
+  <g transform="translate(168,598)">
+    <text x="0" y="30" font-family="-apple-system,sans-serif" font-size="24" fill="#FF8C42">⚪</text>
+    <text x="12" y="50" font-family="-apple-system,sans-serif" font-size="11" fill="#9CA8B8" text-anchor="middle">Grok</text>
+  </g>
+  <!-- 语音 -->
+  <g transform="translate(218,598)">
+    <text x="0" y="30" font-family="-apple-system,sans-serif" font-size="24" fill="#FF8C42">🔇</text>
+    <text x="12" y="50" font-family="-apple-system,sans-serif" font-size="11" fill="#9CA8B8" text-anchor="middle">语音</text>
+  </g>
+  <!-- 智能指导 (active green) -->
+  <g transform="translate(265,598)">
+    <text x="0" y="30" font-family="-apple-system,sans-serif" font-size="24" fill="#34C759">🟢</text>
+    <text x="12" y="50" font-family="-apple-system,sans-serif" font-size="11" fill="#34C759" text-anchor="middle">智能指导</text>
+  </g>
+  <!-- 水平仪 (active) -->
+  <g transform="translate(318,598)">
+    <text x="0" y="30" font-family="-apple-system,sans-serif" font-size="24" fill="#FF8C42">⚖️</text>
+    <text x="12" y="50" font-family="-apple-system,sans-serif" font-size="11" fill="#FF8C42" text-anchor="middle">水平仪</text>
+  </g>
+
+  <!-- Shutter button -->
+  <circle cx="195" cy="740" r="44" fill="rgba(255,245,230,0.3)" stroke="rgba(255,140,66,0.4)" stroke-width="3"/>
+  <circle cx="195" cy="740" r="36" fill="url(#shutterGrad)"/>
+  <!-- Shutter inner highlight -->
+  <circle cx="195" cy="735" r="12" fill="rgba(255,255,255,0.2)"/>
+
+  <!-- Home indicator -->
+  <rect x="155" y="822" width="80" height="4" rx="2" fill="#2D3E50" opacity="0.18"/>
+</svg>
