@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" width="390" height="844">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff8f0"/><stop offset="100%" stop-color="#fff0e6"/>
+    </linearGradient>
+    <linearGradient id="sceneGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#87CEEB"/><stop offset="60%" stop-color="#98D8A0"/><stop offset="100%" stop-color="#6BAE6E"/>
+    </linearGradient>
+    <linearGradient id="btn" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFB25B"/><stop offset="100%" stop-color="#FF7E5F"/>
+    </linearGradient>
+    <filter id="cs"><feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000" flood-opacity="0.08"/></filter>
+  </defs>
+  <rect width="390" height="844" rx="44" fill="url(#bg)"/>
+  <rect width="390" height="844" rx="44" fill="none" stroke="#e0d5cc" stroke-width="1"/>
+
+  <!-- Nav bar -->
+  <rect x="0" y="0" width="390" height="94" rx="44" fill="rgba(255,255,255,0.95)"/>
+  <line x1="0" y1="94" x2="390" y2="94" stroke="rgba(255,245,230,0.8)" stroke-width="1"/>
+  <text x="24" y="34" font-family="-apple-system,sans-serif" font-size="14" font-weight="600" fill="#2D3E50">9:41</text>
+  <rect x="20" y="56" width="40" height="28" rx="14" fill="rgba(255,248,240,0.8)"/>
+  <text x="40" y="75" font-family="sans-serif" font-size="16" text-anchor="middle">←</text>
+  <text x="195" y="76" font-family="-apple-system,sans-serif" font-size="17" font-weight="600" fill="#2D3E50" text-anchor="middle">环境分析报告</text>
+
+  <!-- Scene photo -->
+  <rect x="20" y="110" width="350" height="240" rx="20" fill="url(#sceneGrad)" filter="url(#cs)"/>
+  <!-- Sky elements -->
+  <ellipse cx="100" cy="145" rx="40" ry="22" fill="rgba(255,255,255,0.7)"/>
+  <ellipse cx="260" cy="135" rx="55" ry="28" fill="rgba(255,255,255,0.6)"/>
+  <!-- Sun -->
+  <circle cx="320" cy="135" r="22" fill="rgba(255,220,80,0.85)"/>
+  <!-- Ground/grass -->
+  <rect x="20" y="290" width="350" height="60" rx="0 0 20 20" fill="#6BAE6E" opacity="0.7"/>
+  <!-- Trees simplified -->
+  <rect x="60" y="240" width="14" height="50" fill="#5a7a30" opacity="0.7"/>
+  <ellipse cx="67" cy="238" rx="22" ry="28" fill="#6BAE6E" opacity="0.9"/>
+  <rect x="290" y="250" width="12" height="40" fill="#5a7a30" opacity="0.7"/>
+  <ellipse cx="296" cy="248" rx="18" ry="24" fill="#6BAE6E" opacity="0.9"/>
+  <!-- Light quality overlay -->
+  <rect x="36" y="126" width="110" height="24" rx="12" fill="rgba(255,200,50,0.85)"/>
+  <text x="91" y="143" font-family="-apple-system,sans-serif" font-size="11" fill="#7A5500" text-anchor="middle">☀️ 光线充足</text>
+
+  <!-- Upload button -->
+  <rect x="20" y="366" width="350" height="48" rx="24" fill="url(#btn)"/>
+  <text x="195" y="396" font-family="-apple-system,sans-serif" font-size="15" font-weight="600" fill="white" text-anchor="middle">上传环境图片</text>
+
+  <!-- AI Suggestion card -->
+  <rect x="20" y="430" width="350" height="270" rx="20" fill="rgba(255,255,255,0.98)" filter="url(#cs)"/>
+  <rect x="40" y="448" width="40" height="40" rx="12" fill="rgba(255,248,240,0.9)"/>
+  <text x="60" y="474" font-family="sans-serif" font-size="20" text-anchor="middle">✨</text>
+  <text x="92" y="462" font-family="-apple-system,sans-serif" font-size="16" font-weight="700" fill="#2D3E50">AI 环境建议</text>
+  <line x1="40" y1="498" x2="350" y2="498" stroke="rgba(255,245,230,0.8)" stroke-width="1"/>
+
+  <text x="40" y="516" font-family="-apple-system,sans-serif" font-size="13" fill="#EF6C3E">当前环境光线较强，建议利用侧逆</text>
+  <text x="40" y="536" font-family="-apple-system,sans-serif" font-size="13" fill="#EF6C3E">光拍摄，可增加景深层次感。背景</text>
+  <text x="40" y="556" font-family="-apple-system,sans-serif" font-size="13" fill="#EF6C3E">绿植丰富，推荐黄金时段（16:00—</text>
+  <text x="40" y="576" font-family="-apple-system,sans-serif" font-size="13" fill="#EF6C3E">18:00）拍摄，暖调光线更有氛围。</text>
+  <text x="40" y="596" font-family="-apple-system,sans-serif" font-size="13" fill="#EF6C3E">天空云层适中，可作为留白前景。</text>
+
+  <!-- Replay audio -->
+  <rect x="40" y="612" width="130" height="34" rx="17" fill="rgba(255,248,240,0.9)" stroke="rgba(255,140,66,0.3)" stroke-width="1"/>
+  <text x="105" y="634" font-family="-apple-system,sans-serif" font-size="12" fill="#EF6C3E" text-anchor="middle">🔊 重放语音</text>
+
+  <rect x="155" y="822" width="80" height="4" rx="2" fill="#2D3E50" opacity="0.18"/>
+</svg>

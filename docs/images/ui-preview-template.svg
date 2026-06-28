@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" width="390" height="844">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff8f0"/><stop offset="100%" stop-color="#fff0e6"/>
+    </linearGradient>
+    <linearGradient id="btn" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFB25B"/><stop offset="100%" stop-color="#FF7E5F"/>
+    </linearGradient>
+    <linearGradient id="photoMock" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e8d5c4"/><stop offset="100%" stop-color="#c9a88a"/>
+    </linearGradient>
+    <linearGradient id="scoreRing" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FFB25B"/><stop offset="100%" stop-color="#FF7E5F"/>
+    </linearGradient>
+    <filter id="cs"><feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000" flood-opacity="0.08"/></filter>
+  </defs>
+  <rect width="390" height="844" rx="44" fill="url(#bg)"/>
+  <rect width="390" height="844" rx="44" fill="none" stroke="#e0d5cc" stroke-width="1"/>
+
+  <!-- Nav -->
+  <rect x="0" y="0" width="390" height="94" rx="44" fill="rgba(255,255,255,0.95)"/>
+  <line x1="0" y1="94" x2="390" y2="94" stroke="rgba(255,245,230,0.8)" stroke-width="1"/>
+  <text x="24" y="34" font-family="-apple-system,sans-serif" font-size="14" font-weight="600" fill="#2D3E50">9:41</text>
+  <rect x="20" y="56" width="40" height="28" rx="14" fill="rgba(255,248,240,0.8)"/>
+  <text x="40" y="75" font-family="sans-serif" font-size="16" text-anchor="middle">←</text>
+  <text x="195" y="76" font-family="-apple-system,sans-serif" font-size="17" font-weight="600" fill="#2D3E50" text-anchor="middle">模板评分</text>
+
+  <!-- Photo preview card -->
+  <rect x="20" y="110" width="350" height="240" rx="20" fill="url(#photoMock)" filter="url(#cs)"/>
+  <!-- Portrait silhouette -->
+  <ellipse cx="195" cy="200" rx="40" ry="48" fill="rgba(150,100,70,0.4)"/>
+  <ellipse cx="195" cy="165" rx="25" ry="28" fill="rgba(200,150,110,0.5)"/>
+  <!-- Badge -->
+  <rect x="296" y="126" width="58" height="24" rx="12" fill="rgba(255,179,71,0.9)"/>
+  <text x="325" y="143" font-family="-apple-system,sans-serif" font-size="11" fill="white" text-anchor="middle">待评分</text>
+
+  <!-- Score card -->
+  <rect x="20" y="366" width="350" height="100" rx="20" fill="rgba(255,255,255,0.98)" filter="url(#cs)"/>
+  <text x="195" y="396" font-family="-apple-system,sans-serif" font-size="13" fill="#9CA8B8" text-anchor="middle">综合得分</text>
+  <!-- Score arc background -->
+  <circle cx="195" cy="430" r="28" fill="none" stroke="rgba(255,245,230,0.8)" stroke-width="6"/>
+  <circle cx="195" cy="430" r="28" fill="none" stroke="url(#scoreRing)" stroke-width="6" stroke-dasharray="142 176" stroke-dashoffset="44" stroke-linecap="round"/>
+  <text x="195" y="425" font-family="-apple-system,sans-serif" font-size="18" font-weight="700" fill="#EF6C3E" text-anchor="middle">0.87</text>
+  <text x="223" y="425" font-family="-apple-system,sans-serif" font-size="11" fill="#9CA8B8">/ 1</text>
+
+  <!-- Advice card -->
+  <rect x="20" y="482" width="350" height="210" rx="20" fill="rgba(255,255,255,0.98)" filter="url(#cs)"/>
+  <text x="62" y="516" font-family="sans-serif" font-size="18">✨</text>
+  <text x="88" y="517" font-family="-apple-system,sans-serif" font-size="15" font-weight="700" fill="#2D3E50">AI 评分建议</text>
+  <line x1="40" y1="526" x2="350" y2="526" stroke="rgba(255,245,230,0.8)" stroke-width="1"/>
+  <text x="40" y="545" font-family="-apple-system,sans-serif" font-size="13" fill="#EF6C3E">构图整体出色，主体清晰居中。建</text>
+  <text x="40" y="565" font-family="-apple-system,sans-serif" font-size="13" fill="#EF6C3E">议在背景处增加虚化处理以突出主</text>
+  <text x="40" y="585" font-family="-apple-system,sans-serif" font-size="13" fill="#EF6C3E">体。光线均匀，色彩还原自然，综</text>
+  <text x="40" y="605" font-family="-apple-system,sans-serif" font-size="13" fill="#EF6C3E">合评分 0.87 / 1，表现优秀。</text>
+
+  <!-- Buttons -->
+  <rect x="20" y="708" width="166" height="48" rx="24" fill="rgba(255,248,240,0.9)" stroke="rgba(255,140,66,0.4)" stroke-width="1.5"/>
+  <text x="103" y="737" font-family="-apple-system,sans-serif" font-size="14" fill="#EF6C3E" text-anchor="middle">📷 选择照片</text>
+  <rect x="204" y="708" width="166" height="48" rx="24" fill="url(#btn)"/>
+  <text x="287" y="737" font-family="-apple-system,sans-serif" font-size="14" font-weight="600" fill="white" text-anchor="middle">🧠 AI 评分</text>
+
+  <rect x="40" y="768" width="310" height="44" rx="22" fill="rgba(255,248,240,0.6)" stroke="rgba(255,140,66,0.2)" stroke-width="1"/>
+  <text x="195" y="795" font-family="-apple-system,sans-serif" font-size="14" fill="#9CA8B8" text-anchor="middle">💾 保存为参考</text>
+
+  <rect x="155" y="822" width="80" height="4" rx="2" fill="#2D3E50" opacity="0.18"/>
+</svg>

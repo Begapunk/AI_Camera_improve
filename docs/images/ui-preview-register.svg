@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" width="390" height="844">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff8f0"/><stop offset="100%" stop-color="#fff0e6"/>
+    </linearGradient>
+    <linearGradient id="btn" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFB25B"/><stop offset="100%" stop-color="#FF7E5F"/>
+    </linearGradient>
+    <filter id="cs"><feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#FF6E61" flood-opacity="0.15"/></filter>
+    <filter id="ci"><feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000" flood-opacity="0.04"/></filter>
+  </defs>
+  <rect width="390" height="844" rx="44" fill="url(#bg)"/>
+  <rect width="390" height="844" rx="44" fill="none" stroke="#e0d5cc" stroke-width="1"/>
+
+  <!-- Logo -->
+  <rect x="163" y="48" width="64" height="64" rx="20" fill="#FFE4B8"/>
+  <text x="195" y="92" font-family="sans-serif" font-size="30" text-anchor="middle">📷</text>
+  <text x="195" y="132" font-family="-apple-system,sans-serif" font-size="22" font-weight="700" fill="#2D3E50" text-anchor="middle">万能拍</text>
+
+  <!-- Form card -->
+  <rect x="20" y="152" width="350" height="520" rx="28" fill="rgba(255,255,255,0.98)" filter="url(#cs)"/>
+  <text x="195" y="194" font-family="-apple-system,sans-serif" font-size="20" font-weight="700" fill="#2D3E50" text-anchor="middle">创建新账号</text>
+  <text x="195" y="214" font-family="-apple-system,sans-serif" font-size="12" fill="#9CA8B8" text-anchor="middle">开启您的 AI 摄影之旅</text>
+
+  <!-- Username -->
+  <rect x="40" y="228" width="310" height="48" rx="14" fill="rgba(255,248,240,0.8)" filter="url(#ci)"/>
+  <text x="62" y="257" font-family="sans-serif" font-size="16">👤</text>
+  <text x="88" y="258" font-family="-apple-system,sans-serif" font-size="13" fill="#C0CADB">请输入用户名</text>
+
+  <!-- Password -->
+  <rect x="40" y="286" width="310" height="48" rx="14" fill="rgba(255,248,240,0.8)" filter="url(#ci)"/>
+  <text x="62" y="315" font-family="sans-serif" font-size="16">🔒</text>
+  <text x="88" y="316" font-family="-apple-system,sans-serif" font-size="13" fill="#C0CADB">密码（至少8位，含大小写/数字/符号）</text>
+
+  <!-- Confirm password -->
+  <rect x="40" y="344" width="310" height="48" rx="14" fill="rgba(255,248,240,0.8)" filter="url(#ci)"/>
+  <text x="62" y="373" font-family="sans-serif" font-size="16">✓</text>
+  <text x="88" y="374" font-family="-apple-system,sans-serif" font-size="13" fill="#C0CADB">请再次输入密码</text>
+
+  <!-- Captcha row -->
+  <rect x="40" y="402" width="186" height="48" rx="14" fill="rgba(255,248,240,0.8)" filter="url(#ci)"/>
+  <text x="62" y="431" font-family="sans-serif" font-size="16">📷</text>
+  <text x="88" y="432" font-family="-apple-system,sans-serif" font-size="13" fill="#C0CADB">输入计算结果</text>
+  <rect x="236" y="402" width="114" height="48" rx="14" fill="#FFF3E0"/>
+  <text x="293" y="432" font-family="monospace" font-size="18" font-weight="700" fill="#FF8C42" text-anchor="middle">7+2=?</text>
+
+  <!-- Face section -->
+  <rect x="40" y="462" width="310" height="100" rx="16" fill="rgba(255,248,240,0.5)" stroke="rgba(255,205,165,0.5)" stroke-width="1"/>
+  <text x="62" y="486" font-family="sans-serif" font-size="14">😊</text>
+  <text x="84" y="487" font-family="-apple-system,sans-serif" font-size="13" fill="#5B6E8C">面部识别（可选）</text>
+  <!-- Face placeholder circle -->
+  <circle cx="195" cy="527" r="30" fill="rgba(255,205,165,0.3)" stroke="rgba(255,140,66,0.4)" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="195" y="535" font-family="sans-serif" font-size="20" text-anchor="middle" fill="rgba(255,140,66,0.6)">😶</text>
+  <text x="195" y="554" font-family="-apple-system,sans-serif" font-size="11" fill="#9CA8B8" text-anchor="middle">点击录入面部</text>
+
+  <!-- Register button -->
+  <rect x="40" y="576" width="310" height="52" rx="26" fill="url(#btn)"/>
+  <text x="195" y="608" font-family="-apple-system,sans-serif" font-size="16" font-weight="600" fill="white" text-anchor="middle">立即注册</text>
+
+  <!-- Login link -->
+  <text x="195" y="704" font-family="-apple-system,sans-serif" font-size="14" fill="#9CA8B8" text-anchor="middle">已有账号？<tspan fill="#FF8C42" font-weight="600">去登录</tspan></text>
+
+  <rect x="155" y="822" width="80" height="4" rx="2" fill="#2D3E50" opacity="0.18"/>
+</svg>

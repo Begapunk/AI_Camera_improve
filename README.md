@@ -228,6 +228,28 @@ AI_Camera_improve/
 
 ---
 
+## 🖼️ 功能预览
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/ui-preview-login.svg" width="200" alt="登录"/><br/><sub><b>登录页</b></sub></td>
+    <td align="center"><img src="docs/images/ui-preview-register.svg" width="200" alt="注册"/><br/><sub><b>注册页</b></sub></td>
+    <td align="center"><img src="docs/images/ui-preview-home.svg" width="200" alt="首页"/><br/><sub><b>首页</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/ui-preview-camera.svg" width="200" alt="智能拍摄"/><br/><sub><b>智能拍摄 + 水平仪</b></sub></td>
+    <td align="center"><img src="docs/images/ui-preview-analyze.svg" width="200" alt="自拍分析"/><br/><sub><b>自拍分析</b></sub></td>
+    <td align="center"><img src="docs/images/ui-preview-environment.svg" width="200" alt="环境分析"/><br/><sub><b>环境分析</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/ui-preview-template.svg" width="200" alt="模板评分"/><br/><sub><b>模板评分</b></sub></td>
+    <td align="center"><img src="docs/images/ui-preview-metro.svg" width="200" alt="地铁FOD检测"/><br/><sub><b>地铁 FOD 检测</b></sub></td>
+    <td align="center"><img src="docs/images/ui-preview-profile.svg" width="200" alt="个人中心"/><br/><sub><b>个人中心</b></sub></td>
+  </tr>
+</table>
+
+---
+
 ## 🔌 核心 API 一览
 
 | 端点 | 方法 | 说明 |

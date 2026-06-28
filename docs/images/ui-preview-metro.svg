@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" width="390" height="844">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0f4f0"/><stop offset="100%" stop-color="#e8f0e8"/>
+    </linearGradient>
+    <linearGradient id="greenBanner" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#34C759"/><stop offset="100%" stop-color="#28a745"/>
+    </linearGradient>
+    <linearGradient id="btn" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2e7d32"/><stop offset="100%" stop-color="#388e3c"/>
+    </linearGradient>
+    <filter id="cs"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.08"/></filter>
+  </defs>
+  <rect width="390" height="844" rx="44" fill="url(#bg)"/>
+  <rect width="390" height="844" rx="44" fill="none" stroke="#c8d8c8" stroke-width="1"/>
+
+  <!-- Status bar -->
+  <rect x="0" y="0" width="390" height="44" rx="44" fill="rgba(255,255,255,0.9)"/>
+  <text x="24" y="30" font-family="-apple-system,sans-serif" font-size="14" font-weight="600" fill="#1a3a1a">9:41</text>
+  <!-- Metro title bar -->
+  <rect x="0" y="44" width="390" height="52" fill="#2e7d32"/>
+  <text x="195" y="76" font-family="-apple-system,sans-serif" font-size="17" font-weight="700" fill="white" text-anchor="middle">🚇 地铁 FOD 检测</text>
+
+  <!-- Card 1: 选择转辙机 -->
+  <rect x="16" y="108" width="358" height="150" rx="16" fill="rgba(255,255,255,0.98)" filter="url(#cs)"/>
+  <rect x="16" y="108" width="358" height="36" rx="16 16 0 0" fill="#e8f5e9"/>
+  <text x="36" y="131" font-family="-apple-system,sans-serif" font-size="14" font-weight="600" fill="#2e7d32">① 选择转辙机</text>
+  <!-- Input row -->
+  <rect x="32" y="156" width="200" height="38" rx="10" fill="#f5f5f5" stroke="#ddd" stroke-width="1"/>
+  <text x="48" y="180" font-family="-apple-system,sans-serif" font-size="13" fill="#999">输入或扫码转辙机编号</text>
+  <rect x="240" y="156" width="52" height="38" rx="10" fill="#2e7d32"/>
+  <text x="266" y="180" font-family="-apple-system,sans-serif" font-size="12" fill="white" text-anchor="middle">扫码</text>
+  <rect x="300" y="156" width="58" height="38" rx="10" fill="rgba(46,125,50,0.1)" stroke="#2e7d32" stroke-width="1"/>
+  <text x="329" y="180" font-family="-apple-system,sans-serif" font-size="12" fill="#2e7d32" text-anchor="middle">查询</text>
+  <!-- Device info -->
+  <text x="32" y="214" font-family="-apple-system,sans-serif" font-size="12" fill="#444">型号：S700-A（S 族）　站点：1号线大屯路东站</text>
+  <text x="32" y="234" font-family="-apple-system,sans-serif" font-size="12" fill="#34C759">基准图：已就绪 v3</text>
+
+  <!-- Card 2: 拍摄 -->
+  <rect x="16" y="272" width="358" height="200" rx="16" fill="rgba(255,255,255,0.98)" filter="url(#cs)"/>
+  <rect x="16" y="272" width="358" height="36" rx="16 16 0 0" fill="#e8f5e9"/>
+  <text x="36" y="295" font-family="-apple-system,sans-serif" font-size="14" font-weight="600" fill="#2e7d32">② 拍摄转辙机内部</text>
+  <!-- Photo area: dark machine interior -->
+  <rect x="32" y="316" width="326" height="120" rx="12" fill="#2a2a2a"/>
+  <!-- Machine internals simplified -->
+  <rect x="60" y="330" width="270" height="20" rx="4" fill="#444"/>
+  <rect x="60" y="358" width="180" height="16" rx="4" fill="#555"/>
+  <rect x="80" y="382" width="140" height="14" rx="4" fill="#3a3a3a"/>
+  <!-- Annotated bounding box (detection) -->
+  <rect x="160" y="342" width="80" height="60" rx="4" fill="none" stroke="#FF3B30" stroke-width="2" stroke-dasharray="4,3"/>
+  <text x="200" y="338" font-family="-apple-system,sans-serif" font-size="10" fill="#FF3B30" text-anchor="middle">工器具</text>
+  <!-- Tool icon -->
+  <text x="200" y="378" font-family="sans-serif" font-size="20" text-anchor="middle" fill="rgba(255,59,48,0.8)">🔧</text>
+
+  <!-- Card 3: Result - GREEN safe -->
+  <rect x="16" y="486" width="358" height="220" rx="16" fill="rgba(255,255,255,0.98)" filter="url(#cs)"/>
+  <rect x="16" y="486" width="358" height="36" rx="16 16 0 0" fill="#e8f5e9"/>
+  <text x="36" y="509" font-family="-apple-system,sans-serif" font-size="14" font-weight="600" fill="#2e7d32">③ 检测结果</text>
+  <!-- Result banner GREEN -->
+  <rect x="32" y="530" width="326" height="60" rx="12" fill="url(#greenBanner)"/>
+  <text x="52" y="555" font-family="-apple-system,sans-serif" font-size="16" font-weight="700" fill="white">✓ 安全</text>
+  <text x="52" y="577" font-family="-apple-system,sans-serif" font-size="12" fill="rgba(255,255,255,0.9)">未检测到遗留物，可安全合盖</text>
+  <!-- Meta -->
+  <text x="32" y="610" font-family="-apple-system,sans-serif" font-size="12" fill="#666">质量评分：94 分 · 基准版本：v3 · 三路一致</text>
+  <!-- Detection list empty -->
+  <rect x="32" y="622" width="326" height="28" rx="8" fill="#f9f9f9"/>
+  <text x="195" y="641" font-family="-apple-system,sans-serif" font-size="12" fill="#999" text-anchor="middle">暂无检测条目</text>
+  <!-- Confirmed tip -->
+  <text x="32" y="686" font-family="-apple-system,sans-serif" font-size="13" fill="#34C759">✓ 人工复核已记录</text>
+
+  <!-- Footer tip -->
+  <text x="195" y="756" font-family="-apple-system,sans-serif" font-size="11" fill="#888" text-anchor="middle">绿灯方可合盖；黄/红灯须人工复核。漏报零容忍。</text>
+
+  <rect x="155" y="822" width="80" height="4" rx="2" fill="#2D3E50" opacity="0.18"/>
+</svg>
