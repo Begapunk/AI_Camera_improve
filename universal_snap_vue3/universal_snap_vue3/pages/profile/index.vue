@@ -5,8 +5,9 @@
     <view class="profile-header">
       <view class="header-bg"></view>
       <view class="profile-info">
-        <view class="avatar-wrapper">
-          <view class="avatar">👤</view>
+        <view class="avatar-wrapper" @tap="goToSettings">
+          <image v-if="avatar" :src="avatar" class="avatar avatar-img" mode="aspectFill" />
+          <view v-else class="avatar">👤</view>
           <view class="edit-badge">
             <text class="edit-icon">✏️</text>
           </view>
@@ -44,7 +45,7 @@
             </view>
             <text class="menu-arrow">›</text>
           </view>
-          <view class="menu-item" @tap="goToAnalyze">
+          <view class="menu-item" @tap="goToAnalyzeHistory">
             <view class="menu-icon" style="background:#e1ffee;">📊</view>
             <view class="menu-content">
               <text class="menu-text">分析记录</text>
@@ -52,7 +53,7 @@
             </view>
             <text class="menu-arrow">›</text>
           </view>
-          <view class="menu-item" @tap="goToEnvironment">
+          <view class="menu-item" @tap="goToEnvironmentHistory">
             <view class="menu-icon" style="background:#e0f7ff;">🌤️</view>
             <view class="menu-content">
               <text class="menu-text">环境记录</text>
@@ -130,14 +131,14 @@ export default {
   },
   methods: {
     loadUserInfo() {
-      const storedUsername = uni.getStorageSync('username')
-      if (!storedUsername) {
+      const token = uni.getStorageSync('token')
+      if (!token) {
         uni.redirectTo({ url: '/pages/login/index' })
         return
       }
-      
+
       uni.showLoading({ title: '加载中...', mask: true })
-      getUserInfoApi(storedUsername)
+      getUserInfoApi()
         .then((res) => {
           uni.hideLoading()
           if (res.statusCode === 200 && res.data.user) {
@@ -145,6 +146,9 @@ export default {
             this.username = user.nickname || user.username || '用户昵称'
             this.userId = user.id || '88888888'
             this.avatar = user.avatar || ''
+            this.photoCount = user.photoCount || 0
+            this.score = user.score || 0
+            this.days = user.days || 0
           }
         })
         .catch(() => {
@@ -160,20 +164,20 @@ export default {
     goToTemplateCollection() {
       uni.navigateTo({ url: '/pages/template/templateCollection' })
     },
-    goToAnalyze() {
-      uni.navigateTo({ url: '/pages/analyze/index' })
+    goToAnalyzeHistory() {
+      uni.navigateTo({ url: '/pages/profile/history?type=selfie' })
     },
-    goToEnvironment() {
-      uni.navigateTo({ url: '/pages/environment/index' })
+    goToEnvironmentHistory() {
+      uni.navigateTo({ url: '/pages/profile/history?type=environment' })
     },
     goToSettings() {
-      uni.showToast({ title: '设置功能开发中', icon: 'none' })
+      uni.navigateTo({ url: '/pages/profile/settings' })
     },
     goToHelp() {
-      uni.showToast({ title: '帮助中心开发中', icon: 'none' })
+      uni.navigateTo({ url: '/pages/profile/help' })
     },
     goToAbout() {
-      uni.showToast({ title: '关于我们开发中', icon: 'none' })
+      uni.navigateTo({ url: '/pages/profile/about' })
     },
     handleLogout() {
       uni.showModal({
@@ -182,6 +186,7 @@ export default {
         success: (res) => {
           if (res.confirm) {
             uni.removeStorageSync('username')
+            uni.removeStorageSync('token')
             uni.redirectTo({ url: '/pages/login/index' })
           }
         }

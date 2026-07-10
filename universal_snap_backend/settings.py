@@ -24,6 +24,9 @@ GROK_BASE_URL = os.getenv("GROK_BASE_URL", "https://api.x.ai/v1")
 # 例: "google/paligemma-3b-mix-448"  或  "D:/models/paligemma-3b-mix-448"
 PALIGEMMA_MODEL_PATH = os.getenv("PALIGEMMA_MODEL_PATH", "google/paligemma-3b-mix-448")
 
+# 登录态签名密钥
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+
 # 数据库
 DB_CONFIG = {
     'host': os.getenv("DB_HOST", "localhost"),

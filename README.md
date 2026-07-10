@@ -73,6 +73,9 @@ AI 分析拍摄环境的光线、背景、构图，给出具体可执行的改�
 ### 👤 人脸识别登录
 本地 OpenCV LBPHFaceRecognizer + 云端火山引擎双重校验，支持人脸注册、登录、更新。
 
+### 🙋 个人中心
+基于 Token 的登录态鉴权（`itsdangerous` 签名，30 天有效期），覆盖头像/昵称修改、密码修改、人脸登录管理、自拍/环境分析历史记录查询与语音回放、帮助中心与关于我们。
+
 ### 🚇 地铁模式 · FOD 遗留物检测
 面向轨道交通场景，检测转辙机内部遗留物（工具、零件等）：
 - **三路并联检测**：YOLO 闭集检测 + 基准差分 + 异常兜底
@@ -202,7 +205,7 @@ AI_Camera_improve/
 │       │   ├── environment/     # 环境分析
 │       │   ├── template/        # 模板评分
 │       │   ├── metro/           # 地铁 FOD 检测
-│       │   ├── profile/         # 个人中心
+│       │   ├── profile/         # 个人中心（设置/历史记录/帮助中心/关于我们）
 │       │   └── ar/              # AR 实时引导
 │       ├── static/              # 静态资源
 │       └── utils/               # 工具函数
@@ -256,17 +259,24 @@ AI_Camera_improve/
 |------|------|------|
 | `/api/captcha` | GET | 获取数学验证码 |
 | `/register` | POST | 用户注册（含人脸） |
-| `/login` | POST | 密码登录 |
-| `/login-face` | POST | 人脸登录 |
-| `/analyze` | POST | 自拍分析（Qwen-VL） |
-| `/analyze-grok` | POST | 自拍分析（Grok） |
+| `/login` | POST | 密码登录（返回登录态 Token） |
+| `/login-face` | POST | 人脸登录（返回登录态 Token） |
+| `/analyze` | POST | 自拍分析（Qwen-VL，需登录，写入分析记录） |
+| `/analyze-grok` | POST | 自拍分析（Grok，需登录，写入分析记录） |
 | `/smart-analyze` | POST | 智能构图测距 |
 | `/pro-analyze` | POST | 专业模式三段流水线 |
 | `/detect-pose` | POST | YOLOv8 骨骼关键点检测 |
+| `/detect-gesture` | POST | MediaPipe 手势识别（剪刀手拍照触发） |
 | `/generate-sketch` | POST | OpenCV 透明线稿生成 |
-| `/analyze-env` | POST | 环境分析 |
-| `/analyze-template` | POST | 图像美学评分 |
-| `/api/templates` | GET | 参考列表 |
+| `/analyze-env` | POST | 环境分析（需登录，写入分析记录） |
+| `/analyze-template` | POST | 图像美学评分（可选保存为模板） |
+| `/api/templates` | GET | 模板合集列表（需登录，按用户隔离） |
+| `/api/delete` | DELETE | 删除模板（需登录，校验归属） |
+| `/api/history` | GET | 自拍/环境分析历史记录（需登录） |
+| `/api/user/info` | GET | 获取当前用户资料与统计（需登录） |
+| `/api/user/update` | POST | 更新昵称/头像（需登录） |
+| `/api/user/change-password` | POST | 修改密码（需登录） |
+| `/update-face` | POST | 注册/更新人脸（需登录） |
 | `/metro/detect` | POST | 地铁 FOD 检测 |
 | `/metro/devices/register` | POST | 转辙机设备登记 |
 
@@ -295,6 +305,9 @@ GROK_API_KEY=your_grok_key
 
 # PaliGemma 本地模型路径
 PALIGEMMA_MODEL_PATH=paligemma2-3b-ft-docci-448
+
+# 登录态签名密钥（务必设置为随机字符串，用于签发/校验用户 Token）
+SECRET_KEY=your_random_secret_key
 
 # MySQL 数据库
 DB_HOST=localhost

@@ -78,6 +78,8 @@
 </template>
 
 <script>
+import { uploadImageToServer } from '@/utils/request.js'
+
 export default {
   data() {
     return {
@@ -91,18 +93,14 @@ export default {
       statusClass: "status-waiting"
     };
   },
-  
+
   methods: {
     // 返回上一页
     goBack() {
       uni.navigateBack();
     },
-    
+
     chooseImage() {
-      this.isLoading = true;
-      this.analysisStatus = "处理中";
-      this.statusClass = "status-processing";
-      
       uni.chooseImage({
         count: 1,
         sourceType: ["camera", "album"],
@@ -113,39 +111,43 @@ export default {
           this.audioUrl = "";
           this.analysisStatus = "分析中";
           this.statusClass = "status-analyzing";
-          
-          setTimeout(() => {
-            this.simulateAnalysis().then((result) => {
-              this.advice = result.advice;
-              this.audioUrl = result.audioUrl;
-              this.analysisStatus = "分析完成";
-              this.statusClass = "status-completed";
-              this.isLoading = false;
-              
-              if (this.audioUrl) {
-                this.playAudio();
-              }
-            });
-          }, 2200);
+          this.isLoading = true;
+
+          this.doAnalyze(path);
         },
         fail: () => {
-          this.isLoading = false;
           uni.showToast({ title: '选择图片失败', icon: 'none' });
         }
       });
     },
-    
-    simulateAnalysis() {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({
-            advice: "构图完美！建议调整角度至45°，使用自然光增强面部轮廓。背景简洁突出主体，美颜参数建议降低至30%。",
-            audioUrl: "" // 实际项目替换为真实音频URL
-          });
-        }, 1800);
-      });
+
+    async doAnalyze(path) {
+      try {
+        const data = await uploadImageToServer(path);
+        this.isLoading = false;
+        if (data.advice) {
+          this.advice = data.advice;
+          this.audioUrl = data.audioUrl || "";
+          this.analysisStatus = "分析完成";
+          this.statusClass = "status-completed";
+
+          if (this.audioUrl) {
+            this.playAudio();
+          }
+        } else {
+          this.advice = data.error || "AI 未返回建议";
+          this.analysisStatus = "分析失败";
+          this.statusClass = "status-waiting";
+        }
+      } catch (err) {
+        this.isLoading = false;
+        this.advice = this.initialAdvice;
+        this.analysisStatus = "分析失败";
+        this.statusClass = "status-waiting";
+        uni.showToast({ title: '分析请求失败，请重试', icon: 'none' });
+      }
     },
-    
+
     playAudio() {
       if (!this.audioUrl) return;
       

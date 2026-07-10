@@ -86,13 +86,11 @@ export default {
   },
   onShow() {
     this.username = uni.getStorageSync('username') || '用户'
-    if (this.username && this.username !== '用户') {
-      getUserInfoApi(this.username).then((res) => {
-        if (res.statusCode === 200 && res.data.user) {
-          this.faceRegistered = !!res.data.user.face_registered
-        }
-      }).catch(() => {})
-    }
+    getUserInfoApi().then((res) => {
+      if (res.statusCode === 200 && res.data.user) {
+        this.faceRegistered = !!res.data.user.face_registered
+      }
+    }).catch(() => {})
   },
   methods: {
     captureAndBindFace() {
@@ -104,10 +102,7 @@ export default {
           const filePath = res.tempImagePath || res.tempFilePath;
           const fs = uni.getFileSystemManager();
           const base64Data = fs.readFileSync(filePath, 'base64');
-          updateFaceApi({
-              username: this.username,
-              face_data: base64Data
-            })
+          updateFaceApi(base64Data)
             .then((result) => {
               uni.hideLoading();
               if (result.statusCode === 200) {

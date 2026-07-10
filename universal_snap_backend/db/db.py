@@ -20,12 +20,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 # ... 剩下的代码保持不变 ...
 
-def insert_photo_analysis(filename, advice, score):
+def insert_photo_analysis(filename, advice, score, user_id):
     try:
         conn = pymysql.connect(**DB_CONFIG)
         cursor = conn.cursor()
-        sql = "INSERT INTO photo_analysis (filename, advice, score) VALUES (%s, %s, %s)"
-        cursor.execute(sql, (filename, advice, score))
+        sql = "INSERT INTO photo_analysis (filename, advice, score, user_id) VALUES (%s, %s, %s, %s)"
+        cursor.execute(sql, (filename, advice, score, user_id))
         conn.commit()
         return True
     except Exception as e:
@@ -39,12 +39,13 @@ def insert_photo_analysis(filename, advice, score):
             pass
 
 
-def get_all_photo_analyses():
+def get_all_photo_analyses(user_id):
+    """只返回属于该用户自己的模板，避免跨用户数据泄露"""
     try:
         conn = pymysql.connect(**DB_CONFIG)
         cursor = conn.cursor(pymysql.cursors.DictCursor)  # 这样返回字典而非元组
-        sql = "SELECT id, filename, advice, create_time, score FROM photo_analysis ORDER BY create_time DESC"
-        cursor.execute(sql)
+        sql = "SELECT id, filename, advice, create_time, score FROM photo_analysis WHERE user_id = %s ORDER BY create_time DESC"
+        cursor.execute(sql, (user_id,))
         results = cursor.fetchall()
         return results
     except Exception as e:
@@ -57,17 +58,18 @@ def get_all_photo_analyses():
         except:
             pass
 
-def delete_photo_analysis(template_id):
+def delete_photo_analysis(template_id, user_id):
+    """删除前校验归属，防止越权删除他人模板"""
     try:
         conn = pymysql.connect(**DB_CONFIG)
         cursor = conn.cursor()
-        # 先获取要删除的文件名
-        cursor.execute("SELECT filename FROM photo_analysis WHERE id = %s", (template_id,))
+        cursor.execute("SELECT filename, user_id FROM photo_analysis WHERE id = %s", (template_id,))
         result = cursor.fetchone()
         if not result:
             return False, None  # 没找到记录
-        filename = result[0]
-        # 删除数据库记录
+        filename, owner_id = result
+        if owner_id != user_id:
+            return False, None  # 不属于当前用户，拒绝删除
         cursor.execute("DELETE FROM photo_analysis WHERE id = %s", (template_id,))
         conn.commit()
         return True, filename
@@ -269,3 +271,121 @@ def mark_face_registered(username, registered=True):
             conn.close()
         except:
             pass
+
+
+# --- 用户中心：分析记录（自拍建议 / 环境分析）与统计 ---
+
+def insert_analysis_record(user_id, record_type, filename, advice, audio_filename=None):
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO analysis_record (user_id, type, filename, advice, audio_filename) VALUES (%s, %s, %s, %s, %s)",
+            (user_id, record_type, filename, advice, audio_filename)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print("写入分析记录失败:", e)
+        return False
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+
+def get_analysis_records(user_id, record_type):
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        cursor.execute(
+            "SELECT id, type, filename, advice, audio_filename, create_time FROM analysis_record "
+            "WHERE user_id = %s AND type = %s ORDER BY create_time DESC",
+            (user_id, record_type)
+        )
+        return cursor.fetchall()
+    except Exception as e:
+        print("查询分析记录失败:", e)
+        return []
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+
+def log_user_activity(user_id):
+    """记录用户今天有过分析行为，用于计算连续使用天数；同一天重复调用是幂等的"""
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT IGNORE INTO user_activity_log (user_id, activity_date) VALUES (%s, CURDATE())",
+            (user_id,)
+        )
+        conn.commit()
+    except Exception as e:
+        print("记录用户活跃日期失败:", e)
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+
+def get_user_stats(user_id):
+    """照片数 / 平均评分 / 连续使用天数，供"我的"页头部展示"""
+    stats = {"photoCount": 0, "score": 0, "days": 0}
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT COUNT(*), AVG(score) FROM photo_analysis WHERE user_id = %s", (user_id,))
+        count, avg_score = cursor.fetchone()
+        stats["photoCount"] = count or 0
+        stats["score"] = round(float(avg_score), 1) if avg_score else 0
+
+        cursor.execute(
+            "SELECT activity_date FROM user_activity_log WHERE user_id = %s ORDER BY activity_date DESC",
+            (user_id,)
+        )
+        dates = [row[0] for row in cursor.fetchall()]
+        stats["days"] = _calc_streak(dates)
+
+        return stats
+    except Exception as e:
+        print("统计用户数据失败:", e)
+        return stats
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+
+def _calc_streak(sorted_dates_desc):
+    """dates 需按日期降序排列；从今天或昨天开始，往前数连续无间断的天数"""
+    import datetime
+    if not sorted_dates_desc:
+        return 0
+
+    today = datetime.date.today()
+    if sorted_dates_desc[0] not in (today, today - datetime.timedelta(days=1)):
+        return 0  # 今天/昨天都没有活跃记录，连续天数清零
+
+    streak = 1
+    expected = sorted_dates_desc[0] - datetime.timedelta(days=1)
+    for d in sorted_dates_desc[1:]:
+        if d == expected:
+            streak += 1
+            expected -= datetime.timedelta(days=1)
+        elif d == expected + datetime.timedelta(days=1):
+            continue  # 同一天重复（理论上 UNIQUE 约束已避免），跳过
+        else:
+            break
+    return streak

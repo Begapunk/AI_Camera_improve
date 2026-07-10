@@ -138,9 +138,10 @@ async function onLogin () {
     })
     .then((res) => {
       uni.hideLoading()
-      if (res.statusCode === 200 && res.data.message) {
+      if (res.statusCode === 200 && res.data.token) {
         uni.showToast({ title: '登录成功', icon: 'success' })
         uni.setStorageSync('username', username.value)
+        uni.setStorageSync('token', res.data.token)
         setTimeout(() => {
           uni.redirectTo({ url: '/pages/home/index' })
         }, 1000)
@@ -174,6 +175,7 @@ function takePhotoAndLogin() {
           if (loginRes.statusCode === 200 && loginRes.data.username) {
             uni.showToast({ title: '识别成功', icon: 'success' });
             uni.setStorageSync('username', loginRes.data.username);
+            uni.setStorageSync('token', loginRes.data.token);
             setTimeout(() => {
               uni.redirectTo({ url: '/pages/home/index' });
             }, 1000);

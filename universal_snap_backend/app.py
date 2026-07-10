@@ -102,7 +102,7 @@ def _is_scissor_hand(landmarks):
     pinky_curl = not _finger_extended(landmarks, *_FINGER_JOINTS['pinky'])
     return index_ext and middle_ext and ring_curl and pinky_curl
 # -------------------------------------------
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, g
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from openai import OpenAI
@@ -114,7 +114,9 @@ from db.db import (
     insert_photo_analysis, get_all_photo_analyses,
     delete_photo_analysis, register_user, verify_user,
     get_user_info, update_user_info, update_user_password,
-    get_face_registered, mark_face_registered
+    get_face_registered, mark_face_registered,
+    insert_analysis_record, get_analysis_records,
+    log_user_activity, get_user_stats
 )
 from Face_ID import face_manager
 # 地铁模式：转辙机遗留物（FOD）检测
@@ -129,18 +131,23 @@ from settings import (
     BAIDU_APP_ID, BAIDU_API_KEY, BAIDU_SECRET_KEY,
     ALIYUN_API_KEY, ALIYUN_BASE_URL,
     VOLC_IA_AK, VOLC_IA_SK,
-    GROK_API_KEY, PALIGEMMA_MODEL_PATH
+    GROK_API_KEY, PALIGEMMA_MODEL_PATH, SECRET_KEY
 )
 from security.password_validator import PasswordValidator
+from security.auth import init_auth, generate_token, require_auth
 from migrate_users_table import migrate_users_table
+from migrate_extra_tables import migrate_extra_tables
 
 app = Flask(__name__)
 
 # 启动时自动完成数据库迁移（幂等操作，已有列则跳过）
 try:
     migrate_users_table()
+    migrate_extra_tables()
 except Exception as _migrate_err:
     print(f'[migrate] 迁移跳过: {_migrate_err}')
+
+init_auth(SECRET_KEY)
 
 # 开启全局跨域支持，确保小程序上传不被拦截
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -326,20 +333,19 @@ def login_face():
     if not user_info:
         return jsonify({"error": "用户不存在，请先注册"}), 404
 
-    return jsonify({"message": "识别成功", "username": username})
+    token = generate_token(username)
+    return jsonify({"message": "识别成功", "username": username, "token": token})
 
 
 @app.route('/update-face', methods=['POST'])
+@require_auth
 def update_face():
     data = request.json or {}
-    username = data.get('username')
+    username = g.current_user
     face_data = data.get('face_data')
 
-    if not username or not face_data:
+    if not face_data:
         return jsonify({"error": "缺少必要参数"}), 400
-
-    if not get_user_info(username):
-        return jsonify({"error": "用户不存在"}), 404
 
     already_bound = get_face_registered(username)
     if already_bound:
@@ -370,13 +376,18 @@ def login():
         return jsonify({"error": "密码不合规", "details": errors}), 400
 
     success, message = verify_user(username, password)
-    return jsonify({"message": message}) if success else (jsonify({"error": message}), 401)
+    if not success:
+        return jsonify({"error": message}), 401
+
+    token = generate_token(username)
+    return jsonify({"message": message, "username": username, "token": token})
 
 
 # -------------------------------------------
 
 # --- 2. 核心分析模块 ---
 @app.route('/analyze', methods=['POST'])
+@require_auth
 def analyze():
     file = request.files.get('file')
     if not file: return jsonify({"error": "未上传文件"}), 400
@@ -416,12 +427,18 @@ def analyze():
             else:
                 app.logger.error("百度TTS合成失败(analyze): %s", res)
 
+        user_info = get_user_info(g.current_user)
+        audio_filename = os.path.basename(audio_url) if audio_url else None
+        insert_analysis_record(user_info['id'], 'selfie', filename, advice, audio_filename)
+        log_user_activity(user_info['id'])
+
         return jsonify({"advice": advice, "audioUrl": audio_url, "imageUrl": build_file_url('uploads', filename)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route('/analyze-grok', methods=['POST'])
+@require_auth
 def analyze_grok():
     file = request.files.get('file')
     if not file:
@@ -456,6 +473,10 @@ def analyze_grok():
             temperature=0.7,
         )
         advice = completion.choices[0].message.content.strip()
+
+        user_info = get_user_info(g.current_user)
+        insert_analysis_record(user_info['id'], 'selfie', filename, advice)
+        log_user_activity(user_info['id'])
 
         return jsonify({
             "advice": advice,
@@ -835,6 +856,7 @@ def generate_sketch():
 
 # --- 4. 环境分析模块 ---
 @app.route('/analyze-env', methods=['POST'])
+@require_auth
 def analyze_env():
     """环境分析接口 - 支持AI分析和语音合成"""
     try:
@@ -900,6 +922,11 @@ def analyze_env():
         except Exception as e:
             app.logger.error("百度TTS合成异常(env): %s", e)
 
+        user_info = get_user_info(g.current_user)
+        audio_filename = os.path.basename(response_data['audioUrl']) if response_data['audioUrl'] else None
+        insert_analysis_record(user_info['id'], 'environment', filename, advice, audio_filename)
+        log_user_activity(user_info['id'])
+
         return jsonify(response_data)
 
     except Exception as e:
@@ -908,6 +935,7 @@ def analyze_env():
 
 # --- 5. 图像评分与模板存取模块 ---
 @app.route('/analyze-template', methods=['POST'])
+@require_auth
 def analyze_template():
     file = request.files.get('file')
     save_as_template = request.form.get('save_as_template') == 'true'
@@ -927,7 +955,9 @@ def analyze_template():
         advice = data.get('advice', '画面极具美感')
 
         if save_as_template:
-            insert_photo_analysis(filename, advice, score)
+            user_info = get_user_info(g.current_user)
+            insert_photo_analysis(filename, advice, score, user_info['id'])
+            log_user_activity(user_info['id'])
 
         return jsonify({
             "score": score, "advice": advice, "saved": save_as_template,
@@ -938,9 +968,11 @@ def analyze_template():
 
 
 @app.route('/api/templates', methods=['GET'])
+@require_auth
 def get_templates():
     try:
-        templates = get_all_photo_analyses()
+        user_info = get_user_info(g.current_user)
+        templates = get_all_photo_analyses(user_info['id'])
         for t in templates:
             t['imageUrl'] = build_file_url('uploads', t['filename'])
         return jsonify({"templates": templates})
@@ -949,16 +981,36 @@ def get_templates():
 
 
 @app.route('/api/delete', methods=['DELETE'])
+@require_auth
 def delete_template():
     template_id = request.args.get('template_id', type=int)
     if not template_id: return jsonify({"error": "缺少ID"}), 400
     try:
-        success, filename = delete_photo_analysis(template_id)
+        user_info = get_user_info(g.current_user)
+        success, filename = delete_photo_analysis(template_id, user_info['id'])
         if success:
             path = os.path.join(UPLOAD_FOLDER, filename)
             if os.path.exists(path): os.remove(path)
             return jsonify({"message": "删除成功"})
-        return jsonify({"error": "删除失败"}), 404
+        return jsonify({"error": "删除失败或无权限"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/history', methods=['GET'])
+@require_auth
+def get_history():
+    """自拍建议(selfie) / 环境分析(environment) 历史记录列表"""
+    record_type = request.args.get('type')
+    if record_type not in ('selfie', 'environment'):
+        return jsonify({"error": "type 参数必须是 selfie 或 environment"}), 400
+    try:
+        user_info = get_user_info(g.current_user)
+        records = get_analysis_records(user_info['id'], record_type)
+        for r in records:
+            r['imageUrl'] = build_file_url('uploads', r['filename'])
+            r['audioUrl'] = build_file_url('static/audio', r['audio_filename']) if r.get('audio_filename') else None
+        return jsonify({"records": records})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -976,27 +1028,27 @@ def serve_audio(filename):
 
 # --- 6. 我的模块 ---
 @app.route('/api/user/info', methods=['GET'])
+@require_auth
 def get_user_profile():
-    username = request.args.get('username')
-    if not username:
-        return jsonify({"error": "缺少用户名参数"}), 400
+    username = g.current_user
 
     user_info = get_user_info(username)
-    if user_info:
-        if user_info.get('avatar'):
-            user_info['avatar'] = build_file_url('uploads', user_info['avatar'])
-        return jsonify({"user": user_info})
-    return jsonify({"error": "用户不存在"}), 404
+    if not user_info:
+        return jsonify({"error": "用户不存在"}), 404
+
+    if user_info.get('avatar'):
+        user_info['avatar'] = build_file_url('uploads', user_info['avatar'])
+
+    user_info.update(get_user_stats(user_info['id']))
+    return jsonify({"user": user_info})
 
 
 @app.route('/api/user/update', methods=['POST'])
+@require_auth
 def update_user_profile():
+    username = g.current_user
     data = request.form
-    username = data.get('username')
     nickname = data.get('nickname')
-
-    if not username:
-        return jsonify({"error": "缺少用户名参数"}), 400
 
     avatar = None
     if 'avatar' in request.files:
@@ -1014,13 +1066,14 @@ def update_user_profile():
 
 
 @app.route('/api/user/change-password', methods=['POST'])
+@require_auth
 def change_password():
+    username = g.current_user
     data = request.json
-    username = data.get('username')
     old_password = data.get('old_password')
     new_password = data.get('new_password')
 
-    if not username or not old_password or not new_password:
+    if not old_password or not new_password:
         return jsonify({"error": "缺少必要参数"}), 400
 
     is_valid_pwd, errors = password_validator.validate(new_password, username)

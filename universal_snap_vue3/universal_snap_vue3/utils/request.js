@@ -37,6 +37,7 @@ const responseInterceptor = (response) => {
 
   if (statusCode === 401) {
     uni.removeStorageSync('token');
+    uni.removeStorageSync('username');
     uni.showToast({ title: '登录已过期，请重新登录', icon: 'none' });
     setTimeout(() => {
       uni.redirectTo({ url: '/pages/login/index' });
@@ -113,8 +114,23 @@ export const fetchCaptchaApi = () => get('/api/captcha');
 export const loginApi = (data) => post('/login', data);
 export const loginFaceApi = (faceData) => post('/login-face', { face_data: faceData });
 export const registerApi = (data) => post('/register', data);
-export const updateFaceApi = (data) => post('/update-face', data);
-export const getUserInfoApi = (username) => get('/api/user/info', { username });
+export const updateFaceApi = (faceData) => post('/update-face', { face_data: faceData });
+export const getUserInfoApi = () => get('/api/user/info');
+export const updateUserProfileApi = (filePath, formData = {}) => {
+  if (!filePath) {
+    // 后端用 request.form 解析，无文件时也要走 x-www-form-urlencoded 而非 JSON
+    return request({
+      url: '/api/user/update',
+      method: 'POST',
+      data: formData,
+      header: { 'content-type': 'application/x-www-form-urlencoded' }
+    });
+  }
+  return upload('/api/user/update', filePath, { name: 'avatar', formData });
+};
+export const changePasswordApi = (oldPassword, newPassword) =>
+  post('/api/user/change-password', { old_password: oldPassword, new_password: newPassword });
+export const fetchHistoryApi = (type) => get('/api/history', { type });
 
 export const uploadImageToServer = (filePath) => {
   return upload('/analyze', filePath).then((res) => res.data);
