@@ -12,11 +12,11 @@
 
     <scroll-view class="body" scroll-y enhanced :show-scrollbar="false">
 
-      <!-- ① 选择/扫码 转辙机 -->
+      <!-- ① 选择/扫码 转辙机（可选，不再是检测的前置条件） -->
       <view class="card">
-        <view class="card-title">① 选择转辙机</view>
+        <view class="card-title">① 选择转辙机（可选）</view>
         <view class="row">
-          <input class="ipt" v-model="deviceCode" placeholder="输入或扫码转辙机编号" />
+          <input class="ipt" v-model="deviceCode" placeholder="输入或扫码转辙机编号（可跳过）" />
           <view class="mini-btn" @tap="scanDevice">扫码</view>
           <view class="mini-btn ghost" @tap="loadDevice">查询</view>
         </view>
@@ -31,6 +31,9 @@
         <view v-else-if="deviceQueried" class="dev-info">
           <text class="dev-line warn">该编号未登记。可在下方登记后再检测。</text>
           <view class="link" @tap="showRegister = !showRegister">{{ showRegister ? '收起登记' : '去登记设备 ▸' }}</view>
+        </view>
+        <view v-else class="dev-info">
+          <text class="dev-line warn">不填编号也能直接检测，但无法比对基准图，结果会自动按"需人工复核"处理。</text>
         </view>
 
         <!-- 设备登记面板（冷启动采集基准图） -->
@@ -134,8 +137,11 @@ export default {
     }
   },
   computed: {
+    // 设备编号不再是检测的硬性前置条件——允许未登记/未扫码时也能直接检测，
+    // 代价由后端 fuse_decision 兜底：无 device_code → 基准差分(路B)不启用 →
+    // 结果自动降级为"需人工复核"，不会静默放行，符合宁可误报不可漏报的安全前提。
     canDetect() {
-      return !!this.photoPath && !!this.deviceCode
+      return !!this.photoPath
     },
     resultClass() {
       return ({ PASS: 'green', REVIEW: 'yellow', BLOCKED: 'red', RETAKE: 'gray' })[this.result.result] || 'gray'

@@ -14,16 +14,19 @@
       @error="onCameraError"
     >
       <cover-view class="ar-overlay">
-        <cover-view class="hud-panel" style="border-color: #00c2ff;">
-          <cover-view class="hud-header" style="color: #00c2ff;">👁️ AI 视觉雷达 (纯图像估算)</cover-view>
-          <cover-view class="hud-line" style="background: rgba(0, 194, 255, 0.3);"></cover-view>
+        <cover-view class="hud-panel" style="border-color: #FFD700;">
+          <cover-view class="hud-header" style="color: #FFD700;">👁️ AI 视觉雷达 (纯图像估算)</cover-view>
+          <cover-view class="hud-line" style="background: rgba(255, 215, 0, 0.3);"></cover-view>
           <cover-view class="hud-row"><cover-view class="hud-label">↔️ 左右倾角:</cover-view><cover-view class="hud-value">{{ displayRoll }}°</cover-view></cover-view>
           <cover-view class="hud-row"><cover-view class="hud-label">↕️ 前后俯仰:</cover-view><cover-view class="hud-value">{{ displayPitch }}°</cover-view></cover-view>
           <cover-view class="hud-row dist-row">
             <cover-view class="hud-label">📏 目标距离:</cover-view>
-            <cover-view class="hud-value highlight" style="color: #00c2ff;">{{ distanceText }}</cover-view>
+            <cover-view class="hud-value highlight" style="color: #FFD700;">{{ distanceText }}</cover-view>
           </cover-view>
         </cover-view>
+
+        <!-- 水平指示器：随手机横滚角实时旋转，统一黄色 -->
+        <cover-view class="ar-level-line" :style="{ transform: `translate(-50%, -50%) rotate(${-rollAngle}deg)` }"></cover-view>
 
         <cover-view class="reticle-wrap">
           <cover-view class="reticle-circle" :class="{'reticle-active-visual': hasHit}"></cover-view>
@@ -50,16 +53,19 @@
       class="camera-view"
     >
       <cover-view class="ar-overlay">
-        <cover-view class="hud-panel" style="border-color: #39FF14;">
-          <cover-view class="hud-header" style="color: #39FF14;">🛰️ 增强现实雷达 (物理+AI双轨)</cover-view>
-          <cover-view class="hud-line" style="background: rgba(57,255,20,0.3);"></cover-view>
+        <cover-view class="hud-panel" style="border-color: #FFD700;">
+          <cover-view class="hud-header" style="color: #FFD700;">🛰️ 增强现实雷达 (物理+AI双轨)</cover-view>
+          <cover-view class="hud-line" style="background: rgba(255, 215, 0, 0.3);"></cover-view>
           <cover-view class="hud-row"><cover-view class="hud-label">↔️ 左右倾角:</cover-view><cover-view class="hud-value">{{ displayRoll }}°</cover-view></cover-view>
           <cover-view class="hud-row"><cover-view class="hud-label">↕️ 前后俯仰:</cover-view><cover-view class="hud-value">{{ displayPitch }}°</cover-view></cover-view>
           <cover-view class="hud-row dist-row">
             <cover-view class="hud-label">📏 物理距离:</cover-view>
-            <cover-view class="hud-value highlight" style="color: #39FF14;">{{ distanceText }}</cover-view>
+            <cover-view class="hud-value highlight" style="color: #FFD700;">{{ distanceText }}</cover-view>
           </cover-view>
         </cover-view>
+
+        <!-- 水平指示器：随手机横滚角实时旋转，统一黄色 -->
+        <cover-view class="ar-level-line" :style="{ transform: `translate(-50%, -50%) rotate(${-rollAngle}deg)` }"></cover-view>
 
         <cover-view class="reticle-wrap">
           <cover-view class="reticle-circle" :class="{'reticle-active': hasHit}"></cover-view>
@@ -276,6 +282,10 @@ export default {
     stopSensors() { uni.stopAccelerometer(); },
 
     // ================== AR 引擎与官方标准化 WebGL ==================
+    // 💡 之前的隐患：canvas 节点拿不到 / getContext('webgl') 返回 null / vkSession.start 失败时
+    // 代码直接 return 或只弹一个 toast，radarMode 仍停留在 'ar'，canvas 挂着但从未渲染任何一帧，
+    // 表现为"开启 AR 测距后画面消失"（其实是黑屏，不是被 clearRect 清空）。
+    // 统一改为：任一步失败都调用 _handleARInitFailure 自动切回视觉模式，画面不会停留在黑屏。
     checkAndInitAR() {
       this.isSupportAR = true;
       this.$nextTick(() => {
@@ -283,36 +293,59 @@ export default {
           .select('#webgl').fields({ node: true, size: true })
           .select('#photo-canvas').fields({ node: true })
           .exec((res) => {
-            if (res && res[0] && res[0].node) {
-              this._canvasNode = res[0].node;
-              if (res[1] && res[1].node) this._photoCanvasNode = res[1].node;
-              
-              const sysInfo = uni.getSystemInfoSync();
-              const dpr = sysInfo.pixelRatio;
-              this._canvasNode.width = (res[0].width || sysInfo.windowWidth) * dpr;
-              this._canvasNode.height = (res[0].height || sysInfo.windowHeight) * dpr;
-
-              // 获取底层 GPU 上下文
-              this._gl = this._canvasNode.getContext('webgl', { alpha: false }); 
-              this.initVKSession();
+            if (!res || !res[0] || !res[0].node) {
+              this._handleARInitFailure('AR 画布初始化失败，已切回视觉模式');
+              return;
             }
+            this._canvasNode = res[0].node;
+            if (res[1] && res[1].node) this._photoCanvasNode = res[1].node;
+
+            const sysInfo = uni.getSystemInfoSync();
+            const dpr = sysInfo.pixelRatio;
+            this._canvasNode.width = (res[0].width || sysInfo.windowWidth) * dpr;
+            this._canvasNode.height = (res[0].height || sysInfo.windowHeight) * dpr;
+
+            // 获取底层 GPU 上下文（部分设备/模拟器不支持 WebGL，会返回 null）
+            this._gl = this._canvasNode.getContext('webgl', { alpha: false });
+            if (!this._gl) {
+              this._handleARInitFailure('设备不支持 WebGL，已切回视觉模式');
+              return;
+            }
+            this.initVKSession();
           });
       });
     },
 
     initVKSession() {
-      if (!this._canvasNode || !this._gl) return;
+      if (!this._canvasNode || !this._gl) {
+        this._handleARInitFailure('AR 引擎初始化失败，已切回视觉模式');
+        return;
+      }
       this.initWebGLShader(this._gl);
-      
+
       this._vkSession = wx.createVKSession({
-        track: { plane: { mode: 3 } }, 
+        track: { plane: { mode: 3 } },
         version: 'v2',
-        gl: this._gl 
+        gl: this._gl
       });
-      
+
       this._vkSession.start((err) => {
-        if (err) { uni.showToast({ title: 'AR启动失败', icon: 'none' }); return; }
+        if (err) {
+          this._handleARInitFailure('AR 引擎启动失败，已切回视觉模式');
+          return;
+        }
         this.runARLoop();
+      });
+    },
+
+    // ── AR 初始化失败统一兜底：清理 AR 资源 + 强制切回视觉模式，避免黑屏卡死 ──
+    _handleARInitFailure(msg) {
+      uni.showToast({ title: msg, icon: 'none' });
+      this.stopAR();
+      this.radarMode = 'visual';
+      this.$nextTick(() => {
+        this.initCamera();
+        this.startSensors();
       });
     },
 
@@ -627,25 +660,37 @@ export default {
 .highlight { font-weight: bold; transition: color 0.3s;}
 .dist-row { margin-top: 10rpx; padding-top: 10rpx; border-top: 1px dashed rgba(255,255,255,0.2); }
 
+/* 水平指示器：统一黄色高亮，随 rollAngle 实时旋转 */
+.ar-level-line {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 240rpx;
+  height: 4rpx;
+  background: #FFD700;
+  box-shadow: 0 0 12rpx rgba(255, 215, 0, 0.6);
+  transition: transform 0.1s ease-out;
+}
+
 /* 准星 */
 .reticle-wrap { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 .reticle-circle { width: 80rpx; height: 80rpx; border: 2rpx solid rgba(255,255,255,0.3); border-radius: 50%; transition: all 0.2s; }
 .reticle-dot { position: absolute; top: 50%; left: 50%; width: 8rpx; height: 8rpx; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); transition: all 0.2s;}
 
-/* AR 绿色高亮 */
-.reticle-active { width: 100rpx; height: 100rpx; border-color: #39FF14; border-width: 4rpx; box-shadow: 0 0 20rpx rgba(57, 255, 20, 0.5); }
-.dot-active { background: #39FF14; transform: translate(-50%, -50%) scale(1.5); }
+/* AR 命中高亮：统一黄色 */
+.reticle-active { width: 100rpx; height: 100rpx; border-color: #FFD700; border-width: 4rpx; box-shadow: 0 0 20rpx rgba(255, 215, 0, 0.5); }
+.dot-active { background: #FFD700; transform: translate(-50%, -50%) scale(1.5); }
 
-/* 视觉 蓝色高亮 */
-.reticle-active-visual { width: 100rpx; height: 100rpx; border-color: #00c2ff; border-width: 4rpx; box-shadow: 0 0 20rpx rgba(0, 194, 255, 0.5); }
-.dot-active-visual { background: #00c2ff; transform: translate(-50%, -50%) scale(1.5); }
+/* 视觉模式命中高亮：统一黄色 */
+.reticle-active-visual { width: 100rpx; height: 100rpx; border-color: #FFD700; border-width: 4rpx; box-shadow: 0 0 20rpx rgba(255, 215, 0, 0.5); }
+.dot-active-visual { background: #FFD700; transform: translate(-50%, -50%) scale(1.5); }
 
 /* AI 提示 */
 .ai-bubble-wrap { position: absolute; bottom: 60rpx; left: 0; right: 0; display: flex; justify-content: center; }
 .ai-bubble { background: rgba(0,0,0,0.8); border: 2rpx solid #fff; border-radius: 40rpx; padding: 20rpx 40rpx; max-width: 80%; }
 .ai-text { color: #fff; font-size: 26rpx; text-align: center; }
-.perfect-bubble { border-color: #39FF14; background: rgba(57, 255, 20, 0.2); }
-.perfect-frame { position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 12rpx solid #39FF14; box-shadow: inset 0 0 60rpx rgba(57,255,20,0.4); }
+.perfect-bubble { border-color: #FFD700; background: rgba(255, 215, 0, 0.2); }
+.perfect-frame { position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 12rpx solid #FFD700; box-shadow: inset 0 0 60rpx rgba(255, 215, 0, 0.4); }
 
 /* 控制栏 */
 .footer { height: 380rpx; background: #111; display: flex; flex-direction: column; padding-top: 20rpx; z-index: 10; position: relative;}

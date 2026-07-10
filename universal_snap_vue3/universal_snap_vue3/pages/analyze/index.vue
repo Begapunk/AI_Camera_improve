@@ -155,11 +155,34 @@ export default {
       }
       
       this.innerAudioContext = uni.createInnerAudioContext();
-      this.innerAudioContext.src = this.audioUrl;
-      this.innerAudioContext.play();
-      this.innerAudioContext.onError(() => {
-        uni.showToast({ title: '语音播放失败', icon: 'none' });
+      this.innerAudioContext.obeyMuteSwitch = false; // iOS 静音拨片下仍播报
+      this.innerAudioContext.onError((err) => {
+        console.error('[audio] play error:', err, 'src=', this.innerAudioContext.src);
+        uni.showToast({ title: '语音播放失败:' + (err && err.errMsg || '未知'), icon: 'none' });
       });
+
+      const src = this.audioUrl;
+      // 网络 http mp3 先下载到本地再播，规避微信 innerAudioContext 播放网络音频失败
+      if (/^https?:\/\//i.test(src)) {
+        uni.downloadFile({
+          url: src,
+          success: (res) => {
+            if (res.statusCode === 200 && res.tempFilePath) {
+              this.innerAudioContext.src = res.tempFilePath;
+              this.innerAudioContext.play();
+            } else {
+              uni.showToast({ title: '语音下载失败:' + res.statusCode, icon: 'none' });
+            }
+          },
+          fail: (err) => {
+            console.error('[audio] downloadFile fail:', err);
+            uni.showToast({ title: '语音下载失败:' + (err && err.errMsg || '未知'), icon: 'none' });
+          }
+        });
+      } else {
+        this.innerAudioContext.src = src;
+        this.innerAudioContext.play();
+      }
     }
   },
   

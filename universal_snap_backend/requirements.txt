@@ -15,3 +15,5 @@ accelerate
 Pillow
 # --- 骨骼追踪：YOLOv8n-pose（首次运行自动下载 6MB 模型到 ~/.ultralytics 缓存）---
 ultralytics
+# --- 手势识别：MediaPipe 官方 Gesture Recognizer（内置 Victory/剪刀手分类，无需自训练）---
+mediapipe

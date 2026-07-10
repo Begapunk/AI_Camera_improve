@@ -54,18 +54,39 @@
         ></cover-view>
       </cover-view>
 
+      <!-- 手势拍照：黄色高亮进度环，命中/触发时反馈防抖进度 -->
+      <cover-view v-if="gestureMode" class="gesture-hud">
+        <cover-view
+          class="gesture-ring"
+          :class="{ 'gesture-ring-active': isGestureDetected, 'gesture-ring-fire': isPhotoTriggered }"
+          :style="{ borderColor: gestureHighlightColor, boxShadow: `0 0 24rpx ${gestureHighlightColor}` }"
+        >
+          <cover-view class="gesture-icon">✌️</cover-view>
+        </cover-view>
+        <cover-view v-if="isGestureDetected && !isPhotoTriggered" class="gesture-progress-text" :style="{ color: gestureHighlightColor }">
+          保持中 {{ gestureProgressPercent }}%
+        </cover-view>
+        <cover-view
+          v-if="isPhotoTriggered"
+          class="gesture-confirm-badge"
+          :style="{ borderColor: gestureHighlightColor, color: gestureHighlightColor }"
+        >
+          Pose Confirmed - Snap!
+        </cover-view>
+      </cover-view>
+
       <cover-view v-if="aiMessage" class="ai-bubble-wrap">
-        <cover-view class="ai-bubble" :class="{'perfect-bubble': isPerfect}">
-          <cover-view class="ai-text" :class="{'perfect-text': isPerfect}">
-            {{ isPerfect ? '✨' : (isSpeaking ? '🔊' : (isAnalyzing ? '⌛' : (grokRunning ? '🌐' : '🧠'))) }} {{ aiMessage }}
+        <cover-view class="ai-bubble" :class="{'perfect-bubble': isPerfect}" :style="isPhotoTriggered ? { borderColor: gestureHighlightColor } : {}">
+          <cover-view class="ai-text" :class="{'perfect-text': isPerfect}" :style="isPhotoTriggered ? { color: gestureHighlightColor } : {}">
+            {{ isPerfect ? '✨' : (isPhotoTriggered ? '✌️' : (isSpeaking ? '🔊' : (isAnalyzing ? '⌛' : (grokRunning ? '🌐' : '🧠')))) }} {{ aiMessage }}
           </cover-view>
         </cover-view>
       </cover-view>
     </camera>
 
-    <!-- Canvas 叠加层：专业模式 or 独立骨骼追踪时显示 -->
+    <!-- Canvas 叠加层：专业模式 / 独立骨骼追踪 / 手势拍照(身体骨架+手部关节) 时显示 -->
     <canvas
-      v-if="proMode || skeletonMode"
+      v-if="proMode || skeletonMode || gestureMode"
       type="2d"
       id="proCanvas"
       class="pro-canvas-overlay"
@@ -138,6 +159,16 @@
             <text class="desc">骨骼追踪</text>
           </view>
 
+          <view class="btn" @tap="toggleGestureMode">
+            <text class="emoji">{{ gestureMode ? '🟢' : '✌️' }}</text>
+            <text class="desc">手势拍照</text>
+          </view>
+
+          <view class="btn" @tap="goToARMeasure">
+            <text class="emoji">📡</text>
+            <text class="desc">AR测距</text>
+          </view>
+
           <view class="btn" @tap="showIpConfig">
             <text class="emoji">⚙️</text>
             <text class="desc">配置</text>
@@ -176,6 +207,7 @@
 <script>
 import {
   analyzeApi,
+  detectGestureApi,
   detectPoseApi,
   generateSketchApi,
   getBaseUrl,
@@ -192,6 +224,24 @@ let _isDetecting = false     // 推理异步硬锁（规则2核心）
 let _frameListener = null    // onCameraFrame 监听器句柄（规则4清理用）
 let _lastInferTs = 0         // 节流时间戳（双重保险）
 const _INFER_INTERVAL = 200  // 5fps = 200ms
+
+// ====== 手势拍照：模块级非响应式变量（同规则2/规则4，独立于骨架推理锁）======
+let _isGestureDetecting = false      // 手势推理异步硬锁
+let _gestureFrameListener = null     // 手势专属 onCameraFrame 句柄
+let _lastGestureInferTs = 0          // 手势节流时间戳
+const _GESTURE_INFER_INTERVAL = 150  // 剪刀手判定需要比骨架更灵敏，约 6-7fps
+let _gestureHoldStartTs = 0          // 连续命中起始时间戳（墙钟计时，0=当前未在连续命中中）
+const _GESTURE_HOLD_DURATION = 1500  // 剪刀手需连续保持 1.5s 才判定为拍摄确认，不受帧率抖动影响
+
+// MediaPipe 21 点手部拓扑连接（绘制剪刀手识别时的手部关节连线）
+const _HAND_CONNECTIONS = [
+  [0, 1], [1, 2], [2, 3], [3, 4],           // 拇指
+  [0, 5], [5, 6], [6, 7], [7, 8],           // 食指
+  [5, 9], [9, 10], [10, 11], [11, 12],      // 中指
+  [9, 13], [13, 14], [14, 15], [15, 16],    // 无名指
+  [13, 17], [17, 18], [18, 19], [19, 20],   // 小指
+  [0, 17]                                    // 掌根
+]
 
 // COCO-17 索引 → 名称（匹配 Qwen target_keypoints 字段）
 const _KP_NAMES = [
@@ -300,6 +350,46 @@ function _drawSkeleton(ctx, keypoints, W, H) {
   })
 }
 
+// ── 手部关节连线绘制（剪刀手识别专用，金黄色统一高亮）─────────────
+// landmarks: [{x, y}, ...]（21 点，坐标已归一化 0~1）
+function _drawHandLandmarks(ctx, landmarks, W, H) {
+  const color = '#FFD700'
+
+  _HAND_CONNECTIONS.forEach(([a, b]) => {
+    const pa = landmarks[a]
+    const pb = landmarks[b]
+    if (!pa || !pb) return
+    ctx.beginPath()
+    ctx.moveTo(pa.x * W, pa.y * H)
+    ctx.lineTo(pb.x * W, pb.y * H)
+    ctx.strokeStyle = color
+    ctx.globalAlpha = 0.85
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.shadowColor = color
+    ctx.shadowBlur = 8
+    ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.globalAlpha = 1
+  })
+
+  landmarks.forEach((p, i) => {
+    if (!p) return
+    const r = (i === 8 || i === 12) ? 5 : 3.5   // 食指尖/中指尖：剪刀手判定关键点，略大标示
+
+    ctx.beginPath()
+    ctx.arc(p.x * W, p.y * H, r, 0, Math.PI * 2)
+    ctx.fillStyle = color
+    ctx.shadowColor = color
+    ctx.shadowBlur = 10
+    ctx.fill()
+    ctx.shadowBlur = 0
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+    ctx.lineWidth = 1
+    ctx.stroke()
+  })
+}
+
 export default {
   data() {
     return {
@@ -372,7 +462,14 @@ export default {
       // 避免 VKSession 每帧写入触发 Vue diff 造成卡顿
 
       // 独立骨骼追踪模式
-      skeletonMode: false
+      skeletonMode: false,
+
+      // 手势拍照模式（剪刀手触发）
+      gestureMode: false,
+      isGestureDetected: false,   // 当前帧原始识别信号（未防抖）
+      gestureProgress: 0,         // 0~1 防抖进度，供 UI 进度环/高亮强度绑定
+      isPhotoTriggered: false,    // 防抖满足、拍照触发后短暂置真（用于高亮闪烁反馈）
+      gestureHighlightColor: '#FFD700'  // 系统提示/高亮色，统一黄色，可在此处或作为 prop 传入自定义
     };
   },
   computed: {
@@ -397,8 +494,11 @@ export default {
       const theta = p * (Math.PI / 180);
       let dist = HAND_HEIGHT / Math.tan(theta);
       
-      if (dist > 15) return "> 15m"; 
+      if (dist > 15) return "> 15m";
       return dist.toFixed(2) + "m";
+    },
+    gestureProgressPercent() {
+      return Math.round(this.gestureProgress * 100);
     }
   },
   onLoad() {
@@ -425,6 +525,7 @@ export default {
     this.stopLevelSensor();
     this._stopProMode();
     this._stopSkeletonMode();
+    this._stopGestureMode();
   },
   methods: {
     // === 拍摄模式选择 ===
@@ -609,6 +710,7 @@ export default {
       this.grokRunning = !this.grokRunning;
       if (this.grokRunning) {
         if (this.aiRunning) this.stopAI();
+        if (this.gestureMode) this._stopGestureMode();
         this.aiMessage = 'Grok 模式已启动...';
         this.isAnalyzing = false;
         this.analyzeGrokScene();
@@ -664,6 +766,7 @@ export default {
       this.aiRunning = !this.aiRunning;
       if (this.aiRunning) {
         if (this.grokRunning) this.stopGrok();
+        if (this.gestureMode) this._stopGestureMode();
         this.aiMessage = this.smartMode ? '智能构图指导已启动...' : '全能 AI 助手已启动...';
         this.isPerfect = false;
         this.isAnalyzing = false;
@@ -730,7 +833,8 @@ export default {
 
       smartAnalyzeApi(filePath, {
         mode: this.smartMode,
-        tilt_angle: Math.round(this.tiltAngle).toString()
+        tilt_angle: Math.round(this.tiltAngle).toString(),
+        need_audio: this.isAudioEnabled ? 'true' : 'false'
       })
         .then((res) => {
           if (this.aiRunning && res.statusCode === 200) {
@@ -787,9 +891,19 @@ export default {
       });
     },
     initAudioContext() {
+      // 每次播放前新建实例：复用单一长期实例会被微信回收，
+      // 再操作时报 "operateAudio:fail audioInstance is not set"
+      if (this.audioContext) {
+        try { this.audioContext.destroy(); } catch (e) {}
+      }
       this.audioContext = uni.createInnerAudioContext();
+      this.audioContext.obeyMuteSwitch = false; // iOS 静音拨片下仍播报，与 environment 页保持一致
       this.audioContext.onEnded(() => this.onAudioFinished());
-      this.audioContext.onError(() => this.onAudioFinished());
+      this.audioContext.onError((err) => {
+        console.error('[audio] play error:', err, 'src=', this.audioContext && this.audioContext.src);
+        uni.showToast({ title: '播放失败:' + (err && err.errMsg || '未知'), icon: 'none' });
+        this.onAudioFinished();
+      });
     },
     onAudioFinished() {
       this.isSpeaking = false;
@@ -818,8 +932,31 @@ export default {
     },
     playAudio(url) {
       this.isSpeaking = true;
-      this.audioContext.src = url;
-      this.audioContext.play();
+      this.initAudioContext(); // 重建实例，避免复用被回收的实例
+      // 本地文件(temp/http already downloaded)直接播；网络地址先下载到本地再播，
+      // 规避微信 innerAudioContext 无法直接播放网络 http mp3 的问题
+      if (/^https?:\/\//i.test(url)) {
+        uni.downloadFile({
+          url,
+          success: (res) => {
+            if (res.statusCode === 200 && res.tempFilePath) {
+              this.audioContext.src = res.tempFilePath;
+              this.audioContext.play();
+            } else {
+              console.error('[audio] downloadFile bad status:', res.statusCode);
+              this.onAudioFinished();
+            }
+          },
+          fail: (err) => {
+            console.error('[audio] downloadFile fail:', err);
+            uni.showToast({ title: '语音下载失败:' + (err && err.errMsg || '未知'), icon: 'none' });
+            this.onAudioFinished();
+          }
+        });
+      } else {
+        this.audioContext.src = url;
+        this.audioContext.play();
+      }
     },
     takePhoto() {
       if (!this.isAuth) return;
@@ -871,6 +1008,7 @@ export default {
         // 专业模式与其他 AI 模式互斥
         if (this.aiRunning) this.stopAI();
         if (this.grokRunning) this.stopGrok();
+        if (this.gestureMode) this._stopGestureMode();
         this.aiMessage = '🔬 专业模式已开启 · 点击「分析场景」获取拍摄方案';
         // 初始化 Canvas（需等组件渲染完成）
         this.$nextTick(() => this._initProCanvas());
@@ -1205,12 +1343,24 @@ export default {
     },
 
     // ── 独立骨骼追踪模式 ────────────────────────────────────────────
+    // ── 跳转到独立的 AR 测距页面（wx.createVKSession 引擎，见 pages/ar/index）──
+    // 先关掉所有占用摄像头 onCameraFrame 通道的模式，避免和目标页面抢摄像头硬件
+    goToARMeasure() {
+      if (this.aiRunning) this.stopAI();
+      if (this.grokRunning) this.stopGrok();
+      if (this.proMode) this._stopProMode();
+      if (this.skeletonMode) this._stopSkeletonMode();
+      if (this.gestureMode) this._stopGestureMode();
+      uni.navigateTo({ url: '/pages/ar/index' });
+    },
+
     toggleSkeletonMode() {
       this.skeletonMode = !this.skeletonMode;
       if (this.skeletonMode) {
         if (this.aiRunning) this.stopAI();
         if (this.grokRunning) this.stopGrok();
         if (this.proMode) this._stopProMode();
+        if (this.gestureMode) this._stopGestureMode();
         this.aiMessage = '🦴 骨骼追踪启动中...';
         this.$nextTick(() => {
           this._initProCanvas();
@@ -1226,6 +1376,161 @@ export default {
       this._stopBodyTracking();
       this.skeletonMode = false;
       this.aiMessage = '';
+    },
+
+    // ================================================================
+    // 手势拍照：全身姿态 + 剪刀手（V字手势）融合识别 → 防抖确认 → takePhoto()
+    // 复用现有 onCameraFrame 端云协同数据流（同 _startBodyTracking 的
+    // "硬锁 + 节流" 架构），但作为独立的并行模块，不与骨架追踪模式共用锁。
+    // /detect-gesture 单次请求融合返回：手部 21 点关键点（几何算法判定剪刀手，
+    // 见后端 _is_scissor_hand）+ 身体 17 点骨骼（YOLOv8n-pose），前端同屏渲染。
+    // ================================================================
+    toggleGestureMode() {
+      this.gestureMode = !this.gestureMode;
+      if (this.gestureMode) {
+        // 与其余取景/追踪类模式互斥：共享同一颗摄像头 onCameraFrame 通道，
+        // 同时开多路会重复占用相机硬件，导致规则2/规则4描述的发烫卡死问题
+        if (this.aiRunning) this.stopAI();
+        if (this.grokRunning) this.stopGrok();
+        if (this.proMode) this._stopProMode();
+        if (this.skeletonMode) this._stopSkeletonMode();
+        this.aiMessage = '✌️ 手势拍照已开启 · 比出剪刀手保持约1.5秒自动拍照';
+        this.$nextTick(() => {
+          this._initProCanvas();
+          // canvas 初始化是异步的，稍等再启动帧监听
+          setTimeout(() => this._startGestureTracking(), 300);
+        });
+      } else {
+        this._stopGestureMode();
+      }
+    },
+
+    _startGestureTracking() {
+      this._stopGestureTracking();
+      _gestureHoldStartTs = 0;
+      this.gestureProgress = 0;
+      this.isGestureDetected = false;
+      this._gestureHandLm = null;
+      this._gestureBodyKps = null;
+
+      const cameraCtx = uni.createCameraContext();
+      _gestureFrameListener = cameraCtx.onCameraFrame(async (frame) => {
+        // 异步推理硬锁：绝不堆帧（同规则2）
+        if (_isGestureDetecting) return;
+
+        const now = Date.now();
+        if (now - _lastGestureInferTs < _GESTURE_INFER_INTERVAL) return;
+        _lastGestureInferTs = now;
+
+        _isGestureDetecting = true;
+        try {
+          const detected = await this._estimateGesture(frame);
+          this._applyGestureDebounce(detected);
+        } catch (e) {
+          console.error('[Gesture]', e);
+        } finally {
+          _isGestureDetecting = false;
+        }
+      });
+
+      _gestureFrameListener.start();
+    },
+
+    // ── 推理：复用骨架追踪同款 frame→JPEG 编码，上传后端 /detect-gesture ──
+    // 响应中同时含手部 21 点 + 身体 17 点，非响应式存入 this._gesture*
+    // （同 this._proKps 模式，避免每帧触发 Vue diff 卡顿）供 Canvas 直接绘制
+    async _estimateGesture(frame) {
+      const tempFilePath = await this._frameToJpeg(frame);
+      if (!tempFilePath) return false;
+
+      let res;
+      try {
+        res = await detectGestureApi(tempFilePath);
+      } catch (_) {
+        return false;
+      }
+      if (res.statusCode !== 200 || !res.data) return false;
+
+      this._gestureHandLm = res.data.landmarks || null;
+      this._gestureBodyKps = res.data.keypoints || null;
+      this._drawGestureOverlay();
+
+      return !!res.data.is_scissor;
+    },
+
+    // ── Canvas 绘制：身体骨架 + (最多双手)手部关节连线同屏渲染 ──────
+    // this._gestureHandLm 现为"每只手一个 21 点数组"的数组，最多 2 只手
+    _drawGestureOverlay() {
+      const ctx = this.proCanvasCtx;
+      const W = this.proCanvasWidth;
+      const H = this.proCanvasHeight;
+      if (!ctx || !W || !H) return;
+
+      ctx.clearRect(0, 0, W, H);
+      if (this._gestureBodyKps) _drawSkeleton(ctx, this._gestureBodyKps, W, H);
+      if (this._gestureHandLm) {
+        this._gestureHandLm.forEach((hand) => _drawHandLandmarks(ctx, hand, W, H));
+      }
+    },
+
+    // ── 防抖核心：连续命中满 _GESTURE_HOLD_DURATION(1.5s) 才判定为拍摄确认 ──
+    // 用墙钟时间而非帧数计时，避免网络延迟抖动导致实际保持时长偏离预期。
+    // 单帧误检（手部一晃而过）不会触发拍照，只有稳定保持满 1.5s 才算数
+    _applyGestureDebounce(detected) {
+      this.isGestureDetected = detected;
+      const now = Date.now();
+
+      if (!detected) {
+        _gestureHoldStartTs = 0;
+        this.gestureProgress = 0;
+        return;
+      }
+
+      if (!_gestureHoldStartTs) _gestureHoldStartTs = now;
+      const heldMs = now - _gestureHoldStartTs;
+      this.gestureProgress = Math.min(heldMs / _GESTURE_HOLD_DURATION, 1);
+
+      if (heldMs >= _GESTURE_HOLD_DURATION) {
+        _gestureHoldStartTs = 0;
+        this._triggerGesturePhoto();
+      }
+    },
+
+    // ── 动作确认后统一抛出 takePhoto()，与手动快门走同一条拍照路径 ──
+    _triggerGesturePhoto() {
+      this.isPhotoTriggered = true;
+      this.aiMessage = '✌️ 手势确认！拍摄中...';
+      uni.vibrateLong();
+      this.takePhoto();
+
+      setTimeout(() => {
+        this.isPhotoTriggered = false;
+        this.gestureProgress = 0;
+        if (this.gestureMode) {
+          this.aiMessage = '✌️ 手势拍照已开启 · 比出剪刀手保持约1.5秒自动拍照';
+        }
+      }, 1500);
+    },
+
+    _stopGestureTracking() {
+      if (_gestureFrameListener) {
+        try { _gestureFrameListener.stop(); } catch (_) {}
+        _gestureFrameListener = null;
+      }
+      _isGestureDetecting = false;
+      _gestureHoldStartTs = 0;
+    },
+
+    _stopGestureMode() {
+      this._stopGestureTracking();
+      this.gestureMode = false;
+      this.isGestureDetected = false;
+      this.gestureProgress = 0;
+      this.isPhotoTriggered = false;
+      this.aiMessage = '';
+      this._gestureHandLm = null;
+      this._gestureBodyKps = null;
+      this._clearCanvas();
     }
   }
 };
@@ -1401,6 +1706,66 @@ export default {
 }
 
 .ai-text.perfect-text { color: #34C759; font-weight: bold; }
+
+/* 手势拍照：黄色高亮进度环（颜色统一由 gestureHighlightColor 内联绑定，非硬编码） */
+.gesture-hud {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.gesture-ring {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(255, 215, 0, 0.35);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.08);
+  transition: all 0.15s ease-out;
+}
+
+.gesture-ring.gesture-ring-active {
+  border-width: 6rpx;
+  transform: scale(1.08);
+}
+
+.gesture-ring.gesture-ring-fire {
+  transform: scale(1.25);
+  background: rgba(255, 215, 0, 0.25);
+}
+
+.gesture-icon {
+  font-size: 64rpx;
+  line-height: 1;
+}
+
+.gesture-progress-text {
+  font-size: 24rpx;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 6rpx 20rpx;
+  border-radius: 24rpx;
+}
+
+/* 极简状态提示框：剪刀手防抖确认后显示，黄色统一高亮，无红色等杂色 */
+.gesture-confirm-badge {
+  font-size: 26rpx;
+  font-weight: 700;
+  letter-spacing: 0.5rpx;
+  background: rgba(0, 0, 0, 0.55);
+  border: 2rpx solid;
+  padding: 10rpx 28rpx;
+  border-radius: 12rpx;
+}
 
 .level-container {
   position: absolute;

@@ -35,6 +35,73 @@ def _preload_pose_model():
 
 threading.Thread(target=_preload_pose_model, daemon=True).start()
 # -------------------------------------------
+
+# --- 手势识别：MediaPipe 官方 Gesture Recognizer 延迟加载 ---
+# 用 Gesture Recognizer 拿 21 个手部关键点（分类结果 gesture/score 仅作调试参考），
+# 剪刀手（is_scissor）判定改为自定义几何算法，见 _is_scissor_hand，便于精确控制判据。
+# 模型资产需手动下载一次，放到 models/gesture_recognizer.task：
+#   https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task
+_gesture_recognizer = None
+_gesture_recognizer_lock = threading.Lock()
+_GESTURE_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'gesture_recognizer.task')
+
+def _get_gesture_recognizer():
+    global _gesture_recognizer
+    if _gesture_recognizer is None:
+        with _gesture_recognizer_lock:
+            if _gesture_recognizer is None:
+                import mediapipe as mp
+                from mediapipe.tasks.python import BaseOptions
+                from mediapipe.tasks.python.vision import (
+                    GestureRecognizer, GestureRecognizerOptions, RunningMode
+                )
+                options = GestureRecognizerOptions(
+                    base_options=BaseOptions(model_asset_path=_GESTURE_MODEL_PATH),
+                    running_mode=RunningMode.IMAGE,
+                    num_hands=2,  # 双手都要能识别，任一只手比出剪刀手都算命中
+                    min_hand_detection_confidence=0.5,
+                    min_hand_presence_confidence=0.5,
+                    min_tracking_confidence=0.5,
+                )
+                _gesture_recognizer = GestureRecognizer.create_from_options(options)
+    return _gesture_recognizer
+
+def _preload_gesture_model():
+    try:
+        _get_gesture_recognizer()
+        print('[Gesture] MediaPipe GestureRecognizer ready')
+    except Exception as e:
+        print(f'[Gesture] model preload failed (需先下载 gesture_recognizer.task 到 models/ 目录): {e}')
+
+threading.Thread(target=_preload_gesture_model, daemon=True).start()
+
+# --- 剪刀手（V 字手势）几何判定 ---
+# 判据：食指(8)、中指(12) 伸直，无名指(16)、小指(20) 弯曲。
+# "伸直/弯曲"用"指尖到手腕(0)的距离"对比"对应 PIP 关节到手腕的距离"判断，
+# 比直接比较 y 坐标更抗手部旋转/倾斜。EXTEND_RATIO 可按实际误检情况微调。
+_EXTEND_RATIO = 1.1
+_FINGER_JOINTS = {
+    'index':  (6, 8),   # (PIP, TIP)
+    'middle': (10, 12),
+    'ring':   (14, 16),
+    'pinky':  (18, 20),
+}
+
+def _dist(a, b):
+    return ((a.x - b.x) ** 2 + (a.y - b.y) ** 2) ** 0.5
+
+def _finger_extended(landmarks, pip_idx, tip_idx, wrist_idx=0):
+    wrist = landmarks[wrist_idx]
+    return _dist(wrist, landmarks[tip_idx]) > _dist(wrist, landmarks[pip_idx]) * _EXTEND_RATIO
+
+def _is_scissor_hand(landmarks):
+    """剪刀手几何判定：landmarks 为 MediaPipe 21 点手部关键点（原始对象，需 .x/.y 属性）"""
+    index_ext  = _finger_extended(landmarks, *_FINGER_JOINTS['index'])
+    middle_ext = _finger_extended(landmarks, *_FINGER_JOINTS['middle'])
+    ring_curl  = not _finger_extended(landmarks, *_FINGER_JOINTS['ring'])
+    pinky_curl = not _finger_extended(landmarks, *_FINGER_JOINTS['pinky'])
+    return index_ext and middle_ext and ring_curl and pinky_curl
+# -------------------------------------------
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -346,6 +413,8 @@ def analyze():
                 audio_filename = f"advice_{int(time.time())}.mp3"
                 with open(os.path.join(AUDIO_FOLDER, audio_filename), 'wb') as f: f.write(res)
                 audio_url = build_file_url('static/audio', audio_filename)
+            else:
+                app.logger.error("百度TTS合成失败(analyze): %s", res)
 
         return jsonify({"advice": advice, "audioUrl": audio_url, "imageUrl": build_file_url('uploads', filename)})
     except Exception as e:
@@ -494,12 +563,28 @@ def smart_analyze():
 
         ai_result = call_smart_vision_model(img_base64, formatted_prompt)
 
+        advice = ai_result.get("advice", "继续保持")
+        is_perfect = ai_result.get("is_perfect", False)
+
+        # 智能模式语音播报：与 /analyze 保持一致，需前端 need_audio=true；完美构图时不打扰
+        audio_url = None
+        if request.form.get('need_audio') == 'true' and advice and not is_perfect:
+            res = baidu_client.synthesis(advice, 'zh', 1, {'vol': 7, 'per': 0, 'spd': 4})
+            if not isinstance(res, dict):
+                audio_filename = f"smart_advice_{int(time.time())}.mp3"
+                with open(os.path.join(AUDIO_FOLDER, audio_filename), 'wb') as f:
+                    f.write(res)
+                audio_url = build_file_url('static/audio', audio_filename)
+            else:
+                app.logger.error("百度TTS合成失败(smart): %s", res)
+
         return jsonify({
             "code": 200,
+            "audioUrl": audio_url,
             "data": {
                 "mode": mode,
-                "is_perfect": ai_result.get("is_perfect", False),
-                "advice": ai_result.get("advice", "继续保持"),
+                "is_perfect": is_perfect,
+                "advice": advice,
                 "subject_ratio": float(ai_result.get("subject_ratio", 0.0)),
                 "subject_name": ai_result.get("subject_name", ""),
                 "subject_real_width": float(ai_result.get("subject_real_width", 0.0))
@@ -810,8 +895,10 @@ def analyze_env():
                     f.write(audio_result)
 
                 response_data["audioUrl"] = build_file_url('static/audio', audio_filename)
-        except Exception:
-            pass
+            else:
+                app.logger.error("百度TTS合成失败(env): %s", audio_result)
+        except Exception as e:
+            app.logger.error("百度TTS合成异常(env): %s", e)
 
         return jsonify(response_data)
 
@@ -985,6 +1072,78 @@ def detect_pose():
         for i in range(17)
     ]
     return jsonify({'keypoints': keypoints})
+
+
+# ================================================================
+# 手势识别：MediaPipe Gesture Recognizer（手部 21 点+几何判定，最多双手）
+#          + YOLOv8n-pose（身体 17 点）融合推理接口
+# 接收：multipart/form-data  file=<JPEG>
+# 返回：{
+#   "gesture": "Victory" | null,      # 第一只检测到的手的分类器结果，仅供调试参考
+#   "score": 0.93,
+#   "is_scissor": true,               # 任一只手满足几何判定即为 true，实际触发拍照用这个字段
+#   "landmarks": [[{x,y}×21], ...] | null,  # 每只手的关键点数组（最多 2 只手），归一化坐标 0~1
+#   "keypoints": [{x,y,score}×17] | null    # 身体骨骼关键点，与 /detect-pose 同格式
+# }
+# ================================================================
+@app.route('/detect-gesture', methods=['POST'])
+def detect_gesture():
+    if 'file' not in request.files:
+        return jsonify({'error': 'no file'}), 400
+
+    img_bytes = request.files['file'].read()
+    img_array = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+    if img is None:
+        return jsonify({'error': 'invalid image'}), 400
+
+    try:
+        import mediapipe as mp
+        recognizer = _get_gesture_recognizer()
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        gesture_result = recognizer.recognize(mp_image)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    landmarks = None
+    is_scissor = False
+    gesture_name = None
+    gesture_score = 0.0
+    if gesture_result.hand_landmarks:
+        landmarks = [
+            [{'x': float(p.x), 'y': float(p.y)} for p in hand]
+            for hand in gesture_result.hand_landmarks
+        ]
+        # 任一只手比出剪刀手都判定为命中
+        is_scissor = any(_is_scissor_hand(hand) for hand in gesture_result.hand_landmarks)
+        if gesture_result.gestures and gesture_result.gestures[0]:
+            top = gesture_result.gestures[0][0]
+            gesture_name = top.category_name
+            gesture_score = float(top.score)
+
+    # 身体骨骼融合：同一张已解码的帧复用给 YOLOv8n-pose，避免前端二次上传
+    keypoints = None
+    try:
+        pose_model = _get_pose_model()
+        pose_results = pose_model(img, verbose=False)
+        kps_obj = pose_results[0].keypoints if pose_results else None
+        if kps_obj is not None and kps_obj.xyn is not None and len(kps_obj.xyn) > 0:
+            xy = kps_obj.xyn[0].tolist()
+            conf = kps_obj.conf[0].tolist() if kps_obj.conf is not None else [1.0] * 17
+            keypoints = [
+                {'x': float(xy[i][0]), 'y': float(xy[i][1]), 'score': float(conf[i])}
+                for i in range(17)
+            ]
+    except Exception as e:
+        print(f'[Gesture] pose fusion failed: {e}')
+
+    return jsonify({
+        'gesture': gesture_name,
+        'score': gesture_score,
+        'is_scissor': is_scissor,
+        'landmarks': landmarks,
+        'keypoints': keypoints
+    })
 
 
 # =========================================================================

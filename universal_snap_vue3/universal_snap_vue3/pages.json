@@ -38,6 +38,15 @@
       }
     },
     {
+      "path": "pages/ar/index",
+      "style": {
+        "navigationBarTitleText": "AR 测距",
+        "navigationBarBackgroundColor": "#000000",
+        "navigationBarTextStyle": "white",
+        "disableScroll": true
+      }
+    },
+    {
       "path": "pages/environment/index",
       "style": {
         "navigationBarTitleText": "环境分析"

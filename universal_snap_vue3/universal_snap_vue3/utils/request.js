@@ -1,4 +1,4 @@
-let BASE_URL = 'http://172.20.10.5:5001';
+let BASE_URL = 'http://192.168.124.35:5001';
 
 const DEFAULT_TIMEOUT = 30000;
 
@@ -137,6 +137,8 @@ export const grokAnalyzeApi = (filePath) => upload('/analyze-grok', filePath);
 export const proAnalyzeApi = (filePath, formData = {}) => upload('/pro-analyze', filePath, { formData, timeout: 90000 });
 export const generateSketchApi = (filePath) => upload('/generate-sketch', filePath);
 export const detectPoseApi = (filePath) => upload('/detect-pose', filePath, { timeout: 10000 });
+// 手势识别：剪刀手拍照触发，走独立数据流，超时对齐骨骼追踪帧率节奏
+export const detectGestureApi = (filePath) => upload('/detect-gesture', filePath, { timeout: 8000 });
 
 export const fetchTemplateList = () => get('/api/templates');
 export const deleteTemplateApi = (id) => del(`/api/delete?template_id=${encodeURIComponent(id)}`);

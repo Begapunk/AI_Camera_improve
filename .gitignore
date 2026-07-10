@@ -24,3 +24,9 @@ unpackage/
 # Logs
 *.log
 app.log
+
+# 大体积模型资产（首次运行/手动下载，不入库）
+universal_snap_backend/models/
+*.task
+yolov8n-pose.pt
+*.pt

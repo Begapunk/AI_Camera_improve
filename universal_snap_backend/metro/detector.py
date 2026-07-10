@@ -289,8 +289,11 @@ def fuse_decision(quality_ok, detections, has_baseline, baseline_aligned):
 
 # =========================================================================
 # 标注图绘制
+# 极简 UI 规范：识别框线条/角标/文字统一黄色 #FFD700（BGR (0,215,255)），
+# 不再按来源(yolo/diff)区分颜色——来源仍可从标签文字/det-list 分辨，
+# blocking(遗留物阻塞判定) 仍用线宽 3px vs 2px 区分严重程度，不受配色影响。
 # =========================================================================
-_COLOR_MAP = {"yolo": (0, 0, 255), "diff": (0, 165, 255)}  # BGR
+_BOX_COLOR = (0, 215, 255)  # BGR，对应前端 #FFD700
 
 
 def annotate_image(img_bgr, detections):
@@ -298,12 +301,11 @@ def annotate_image(img_bgr, detections):
     canvas = img_bgr.copy()
     for d in detections:
         x, y, w, h = d["bbox"]
-        color = _COLOR_MAP.get(d["source"], (0, 0, 255))
         thickness = 3 if d.get("blocking") else 2
-        cv2.rectangle(canvas, (x, y), (x + w, y + h), color, thickness)
+        cv2.rectangle(canvas, (x, y), (x + w, y + h), _BOX_COLOR, thickness)
         tag = f"{d['label']} {d['conf']:.2f}"
         cv2.putText(canvas, tag, (x, max(y - 6, 12)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, _BOX_COLOR, 2, cv2.LINE_AA)
     ok, buf = cv2.imencode(".jpg", canvas)
     return buf.tobytes() if ok else None
 
