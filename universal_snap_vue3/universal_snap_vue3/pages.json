@@ -99,6 +99,15 @@
       "style": {
         "navigationBarTitleText": "地铁模式 · 遗留物检测"
       }
+    },
+    {
+      "path": "pages/pose-guide/index",
+      "style": {
+        "navigationBarTitleText": "AI 姿态引导拍摄",
+        "navigationBarBackgroundColor": "#000000",
+        "navigationBarTextStyle": "white",
+        "disableScroll": true
+      }
     }
   ],
 

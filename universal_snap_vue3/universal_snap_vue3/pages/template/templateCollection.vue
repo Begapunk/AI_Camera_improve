@@ -21,7 +21,7 @@
           />
           <view class="delete-btn" @click.stop="confirmDelete(item.id)">✕</view>
         </view>
-        <text class="score">评分：{{ item.score }}</text>
+        <text class="score">评分：{{ formatScore(item.score) }}</text>
       </view>
     </view>
 
@@ -65,6 +65,12 @@ export default {
         console.error(err)
         uni.showToast({ title: '请求出错', icon: 'none' })
       }
+    },
+
+    // 后端存的是原始浮点评分（如 0.7327833771705627），不格式化会撑爆卡片被省略号截断
+    formatScore(score) {
+      const n = Number(score)
+      return Number.isFinite(n) ? n.toFixed(1) : '--'
     },
 
     previewImage(index) {

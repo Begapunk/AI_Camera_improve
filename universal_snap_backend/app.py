@@ -125,32 +125,42 @@ from db.metro_db import (
     confirm_inspection, list_inspections
 )
 from metro import (
-    METRO_MODELS, resolve_family, run_detection, RESULT_REVIEW
+    METRO_MODELS, resolve_family, run_detection, RESULT_REVIEW, RESULT_PASS
 )
 from settings import (
     BAIDU_APP_ID, BAIDU_API_KEY, BAIDU_SECRET_KEY,
     ALIYUN_API_KEY, ALIYUN_BASE_URL,
     VOLC_IA_AK, VOLC_IA_SK,
-    GROK_API_KEY, PALIGEMMA_MODEL_PATH, SECRET_KEY
+    GROK_API_KEY, GROK_BASE_URL, PALIGEMMA_MODEL_PATH, SECRET_KEY,
+    CORS_ORIGINS, FLASK_DEBUG
 )
 from security.password_validator import PasswordValidator
-from security.auth import init_auth, generate_token, require_auth
+from security.auth import (
+    init_auth, generate_token, require_auth,
+    generate_file_token, verify_file_token
+)
 from migrate_users_table import migrate_users_table
 from migrate_extra_tables import migrate_extra_tables
+from migrate_metro_tables import migrate as migrate_metro_tables
 
 app = Flask(__name__)
 
-# 启动时自动完成数据库迁移（幂等操作，已有列则跳过）
+# 启动时自动完成数据库迁移（幂等操作，已有表/列则跳过）
 try:
     migrate_users_table()
     migrate_extra_tables()
+    migrate_metro_tables()
 except Exception as _migrate_err:
     print(f'[migrate] 迁移跳过: {_migrate_err}')
 
 init_auth(SECRET_KEY)
 
-# 开启全局跨域支持，确保小程序上传不被拦截
-CORS(app, resources={r"/*": {"origins": "*"}})
+# 跨域支持：小程序原生请求不受 CORS 约束，这里主要影响 H5 端；
+# 来源白名单由 CORS_ORIGINS 环境变量控制（逗号分隔），缺省 * 便于局域网真机调试
+_cors_origins = "*" if CORS_ORIGINS.strip() == "*" else [
+    o.strip() for o in CORS_ORIGINS.split(",") if o.strip()
+]
+CORS(app, resources={r"/*": {"origins": _cors_origins}})
 
 # 基础路径配置
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -189,10 +199,15 @@ def cleanup_captchas():
 
 # -------------------------------------------------------------------------
 
-# --- 辅助函数：构建动态 URL ---
+# --- 辅助函数：构建动态 URL（附带访问签名，未签名/过期请求一律 403）---
 def build_file_url(subpath, filename):
     base_url = request.host_url.rstrip('/')
-    return f"{base_url}/{subpath}/{filename}"
+    token = generate_file_token(subpath, filename)
+    return f"{base_url}/{subpath}/{filename}?st={token}"
+
+
+def build_metro_file_url(filename):
+    return build_file_url('metro-file', filename)
 
 
 # --- 辅助函数：生成透明背景的线稿 ---
@@ -303,6 +318,11 @@ def register():
     if not username or not password:
         return jsonify({"error": "用户名和密码不能为空"}), 400
 
+    # 密码强度在注册入口校验（登录不再校验，避免日后收紧规则把老用户锁在门外）
+    is_valid_pwd, errors = password_validator.validate(password, username)
+    if not is_valid_pwd:
+        return jsonify({"error": "密码不合规", "details": errors}), 400
+
     success, message = register_user(username, password)
     if not success:
         return jsonify({"error": message}), 400
@@ -371,10 +391,6 @@ def login():
     if not is_valid_captcha:
         return jsonify({"error": captcha_msg}), 400
 
-    is_valid_pwd, errors = password_validator.validate(password, username)
-    if not is_valid_pwd:
-        return jsonify({"error": "密码不合规", "details": errors}), 400
-
     success, message = verify_user(username, password)
     if not success:
         return jsonify({"error": message}), 401
@@ -433,8 +449,9 @@ def analyze():
         log_user_activity(user_info['id'])
 
         return jsonify({"advice": advice, "audioUrl": audio_url, "imageUrl": build_file_url('uploads', filename)})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        app.logger.exception("analyze 失败")
+        return jsonify({"error": "分析服务暂时不可用，请稍后重试"}), 500
 
 
 @app.route('/analyze-grok', methods=['POST'])
@@ -454,7 +471,7 @@ def analyze_grok():
 
     try:
         # 【核心修复】：新建客户端
-        local_xai_client = OpenAI(api_key=GROK_API_KEY, base_url="https://api.x.ai/v1")
+        local_xai_client = OpenAI(api_key=GROK_API_KEY, base_url=GROK_BASE_URL)
         completion = local_xai_client.chat.completions.create(
             model="grok-2-vision-1212",
             messages=[
@@ -483,8 +500,9 @@ def analyze_grok():
             "imageUrl": build_file_url('uploads', filename),
             "model": "Grok"
         })
-    except Exception as e:
-        return jsonify({"error": f"Grok 服务异常: {str(e)}"}), 500
+    except Exception:
+        app.logger.exception("analyze-grok 失败")
+        return jsonify({"error": "Grok 服务异常，请稍后重试"}), 500
 
 
 # --- 智能测距构图相关提示词与处理逻辑 ---
@@ -560,6 +578,7 @@ def call_smart_vision_model(img_base64, prompt):
 
 # --- 智能构图视觉测距接口 ---
 @app.route('/smart-analyze', methods=['POST'])
+@require_auth
 def smart_analyze():
     try:
         file = request.files.get('file')
@@ -612,11 +631,12 @@ def smart_analyze():
             }
         })
 
-    except Exception as e:
-        # 【核心修复】：删除了危险的 print，不再抛出引发前端断连的 HTML 报错页面，优雅返回 JSON
+    except Exception:
+        # 不抛 HTML 报错页面、不外泄内部异常细节，优雅返回 JSON；细节进服务端日志
+        app.logger.exception("smart-analyze 失败")
         return jsonify({
             "code": 500,
-            "error": str(e),
+            "error": "分析服务暂时不可用，请稍后重试",
             "data": {
                 "is_perfect": False,
                 "advice": "系统思考中，请重新测距...",
@@ -637,26 +657,32 @@ def smart_analyze():
 _pali_model = None
 _pali_processor = None
 _pali_device = None
+_pali_lock = threading.Lock()
 
 
 def _load_paligemma():
-    """懒加载 PaliGemma，线程不安全但对单进程 Flask 足够用"""
+    """懒加载 PaliGemma。threaded 模式下冷启动可能并发进入，双重检查锁防止模型被加载两次撑爆显存"""
     global _pali_model, _pali_processor, _pali_device
     if _pali_model is not None:
         return _pali_model, _pali_processor, _pali_device
 
-    import torch
-    from transformers import AutoProcessor, PaliGemmaForConditionalGeneration
+    with _pali_lock:
+        if _pali_model is not None:
+            return _pali_model, _pali_processor, _pali_device
 
-    _pali_device = "cuda" if torch.cuda.is_available() else "cpu"
-    dtype = torch.bfloat16 if _pali_device == "cuda" else torch.float32
+        import torch
+        from transformers import AutoProcessor, PaliGemmaForConditionalGeneration
 
-    _pali_processor = AutoProcessor.from_pretrained(PALIGEMMA_MODEL_PATH)
-    _pali_model = PaliGemmaForConditionalGeneration.from_pretrained(
-        PALIGEMMA_MODEL_PATH,
-        torch_dtype=dtype,
-        device_map=_pali_device,
-    ).eval()
+        _pali_device = "cuda" if torch.cuda.is_available() else "cpu"
+        dtype = torch.bfloat16 if _pali_device == "cuda" else torch.float32
+
+        _pali_processor = AutoProcessor.from_pretrained(PALIGEMMA_MODEL_PATH)
+        # _pali_model 最后赋值：锁外快路径以它判断“已就绪”，processor/device 必须先可用
+        _pali_model = PaliGemmaForConditionalGeneration.from_pretrained(
+            PALIGEMMA_MODEL_PATH,
+            torch_dtype=dtype,
+            device_map=_pali_device,
+        ).eval()
 
     return _pali_model, _pali_processor, _pali_device
 
@@ -702,6 +728,7 @@ def _paligemma_infer(image_bytes):
 
 
 @app.route('/pro-analyze', methods=['POST'])
+@require_auth
 def pro_analyze():
     """
     专业模式三段流水线接口：
@@ -824,14 +851,16 @@ def pro_analyze():
 
     except json.JSONDecodeError:
         return jsonify({"code": 500, "error": "Qwen 返回了非法 JSON，请重试", "data": None}), 500
-    except Exception as e:
-        return jsonify({"code": 500, "error": str(e), "data": None}), 500
+    except Exception:
+        app.logger.exception("pro-analyze 失败")
+        return jsonify({"code": 500, "error": "专业模式分析失败，请稍后重试", "data": None}), 500
 
 
 # -------------------------------------------
 
 # --- 3. 工具与分析模块 ---
 @app.route('/generate-sketch', methods=['POST'])
+@require_auth
 def generate_sketch():
     file = request.files.get('file')
     if not file: return jsonify({"error": "未上传文件"}), 400
@@ -850,8 +879,9 @@ def generate_sketch():
             "sketchUrl": build_file_url('uploads', filename)
         })
 
-    except Exception as e:
-        return jsonify({"error": f"线稿生成失败: {str(e)}"}), 500
+    except Exception:
+        app.logger.exception("generate-sketch 失败")
+        return jsonify({"error": "线稿生成失败，请稍后重试"}), 500
 
 
 # --- 4. 环境分析模块 ---
@@ -929,8 +959,9 @@ def analyze_env():
 
         return jsonify(response_data)
 
-    except Exception as e:
-        return jsonify({"error": f"分析失败: {str(e)}"}), 500
+    except Exception:
+        app.logger.exception("analyze-env 失败")
+        return jsonify({"error": "环境分析失败，请稍后重试"}), 500
 
 
 # --- 5. 图像评分与模板存取模块 ---
@@ -941,7 +972,8 @@ def analyze_template():
     save_as_template = request.form.get('save_as_template') == 'true'
     if not file: return jsonify({"error": "未上传文件"}), 400
 
-    filename = secure_filename(file.filename)
+    # 时间戳前缀保证唯一，否则不同用户的同名文件会互相覆盖
+    filename = f"template_{int(time.time())}_{secure_filename(file.filename)}"
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
@@ -963,8 +995,9 @@ def analyze_template():
             "score": score, "advice": advice, "saved": save_as_template,
             "imageUrl": build_file_url('uploads', filename)
         })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        app.logger.exception("analyze-template 失败")
+        return jsonify({"error": "评分服务暂时不可用，请稍后重试"}), 500
 
 
 @app.route('/api/templates', methods=['GET'])
@@ -976,8 +1009,9 @@ def get_templates():
         for t in templates:
             t['imageUrl'] = build_file_url('uploads', t['filename'])
         return jsonify({"templates": templates})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        app.logger.exception("templates 查询失败")
+        return jsonify({"error": "获取模板列表失败，请稍后重试"}), 500
 
 
 @app.route('/api/delete', methods=['DELETE'])
@@ -993,8 +1027,9 @@ def delete_template():
             if os.path.exists(path): os.remove(path)
             return jsonify({"message": "删除成功"})
         return jsonify({"error": "删除失败或无权限"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        app.logger.exception("删除模板失败")
+        return jsonify({"error": "删除失败，请稍后重试"}), 500
 
 
 @app.route('/api/history', methods=['GET'])
@@ -1011,18 +1046,23 @@ def get_history():
             r['imageUrl'] = build_file_url('uploads', r['filename'])
             r['audioUrl'] = build_file_url('static/audio', r['audio_filename']) if r.get('audio_filename') else None
         return jsonify({"records": records})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        app.logger.exception("history 查询失败")
+        return jsonify({"error": "获取历史记录失败，请稍后重试"}), 500
 
 
-# --- 静态资源路由 ---
+# --- 静态资源路由（一律校验 ?st= 签名，防止陌生人猜文件名枚举用户照片/语音）---
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
+    if not verify_file_token('uploads', filename, request.args.get('st', '')):
+        return jsonify({"error": "链接无效或已过期"}), 403
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
 @app.route('/static/audio/<filename>')
 def serve_audio(filename):
+    if not verify_file_token('static/audio', filename, request.args.get('st', '')):
+        return jsonify({"error": "链接无效或已过期"}), 403
     return send_from_directory(AUDIO_FOLDER, filename)
 
 
@@ -1092,6 +1132,7 @@ def change_password():
 # 返回：{ "keypoints": [{x,y,score}, ...] }（COCO-17，坐标已归一化 0~1）
 # ================================================================
 @app.route('/detect-pose', methods=['POST'])
+@require_auth
 def detect_pose():
     if 'file' not in request.files:
         return jsonify({'error': 'no file'}), 400
@@ -1105,8 +1146,9 @@ def detect_pose():
     try:
         model = _get_pose_model()
         results = model(img, verbose=False)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        app.logger.exception("detect-pose 推理失败")
+        return jsonify({'error': '姿态检测服务异常，请稍后重试'}), 500
 
     if not results or results[0].keypoints is None:
         return jsonify({'keypoints': None})
@@ -1140,6 +1182,7 @@ def detect_pose():
 # }
 # ================================================================
 @app.route('/detect-gesture', methods=['POST'])
+@require_auth
 def detect_gesture():
     if 'file' not in request.files:
         return jsonify({'error': 'no file'}), 400
@@ -1155,8 +1198,9 @@ def detect_gesture():
         recognizer = _get_gesture_recognizer()
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         gesture_result = recognizer.recognize(mp_image)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        app.logger.exception("detect-gesture 推理失败")
+        return jsonify({'error': '手势识别服务异常，请稍后重试'}), 500
 
     landmarks = None
     is_scissor = False
@@ -1206,12 +1250,14 @@ def detect_gesture():
 # =========================================================================
 
 @app.route('/metro/models', methods=['GET'])
+@require_auth
 def metro_models():
     """返回型号族映射，供前端选择器与后端登记校验保持同步。"""
     return jsonify({"families": METRO_MODELS})
 
 
 @app.route('/metro/device/<device_code>', methods=['GET'])
+@require_auth
 def metro_get_device(device_code):
     """扫码后拉取设备信息 + 基准就绪状态。"""
     dev = get_device(device_code)
@@ -1223,6 +1269,7 @@ def metro_get_device(device_code):
 
 
 @app.route('/metro/devices/register', methods=['POST'])
+@require_auth
 def metro_register_device():
     """登记/更新转辙机；可选上传基准空腔图（multipart: baseline=<JPEG>）。"""
     device_code = (request.form.get('device_code') or '').strip()
@@ -1250,6 +1297,7 @@ def metro_register_device():
 
 
 @app.route('/metro/detect', methods=['POST'])
+@require_auth
 def metro_detect():
     """核心检测接口。
 
@@ -1262,7 +1310,8 @@ def metro_detect():
         return jsonify({"error": "未上传文件"}), 400
 
     device_code = (request.form.get('device_code') or '').strip()
-    worker_id = request.form.get('worker_id') or ''
+    # 工号可由前端填报（可能与登录账号不同），缺省回落到登录身份，保证证据链必有可追溯主体
+    worker_id = request.form.get('worker_id') or g.current_user
     captured_at = request.form.get('captured_at') or ''
     offline_flag = request.form.get('offline_flag') in ('1', 'true', 'True')
 
@@ -1288,11 +1337,12 @@ def metro_detect():
     # 跑三路检测 + 融合
     try:
         det = run_detection(image_bytes, baseline_bytes)
-    except Exception as e:
-        # 服务异常一律 fail-safe 降级，绝不放行
+    except Exception:
+        # 服务异常一律 fail-safe 降级，绝不放行；异常细节只进服务端日志
+        app.logger.exception("metro/detect 检测服务异常")
         return jsonify({
             "result": RESULT_REVIEW,
-            "message": f"检测服务异常，已降级人工复核：{str(e)[:120]}",
+            "message": "检测服务异常，已降级人工复核，请勿合盖",
             "detections": [],
         }), 200
 
@@ -1327,26 +1377,34 @@ def metro_detect():
         "offline_flag": offline_flag,
         "captured_at": captured_at,
     }
-    insert_inspection(rec)
+    evidence_saved, evidence_err = insert_inspection(rec)
+    if not evidence_saved:
+        # 全链路可追溯是硬约束：证据没落库的"通过"不允许放行，降级人工复核
+        app.logger.error("metro/detect 证据链写入失败 trace_id=%s: %s", trace_id, evidence_err)
+        if det["result"] == RESULT_PASS:
+            det["result"] = RESULT_REVIEW
+            det["message"] = "检测通过但证据记录失败，已降级人工复核，请勿直接合盖"
 
-    base = request.host_url.rstrip('/')
     return jsonify({
         "trace_id": trace_id,
+        "evidence_saved": evidence_saved,
         "result": det["result"],
         "message": det["message"],
         "quality_score": det["quality_score"],
         "detections": det["detections"],
         "baseline_version": baseline_version,
-        "image_url": f"{base}/metro-file/{image_name}",
-        "annotated_url": f"{base}/metro-file/{annotated_name}" if annotated_name else None,
+        "image_url": build_metro_file_url(image_name),
+        "annotated_url": build_metro_file_url(annotated_name) if annotated_name else None,
     })
 
 
 @app.route('/metro/inspection/<trace_id>/confirm', methods=['POST'])
+@require_auth
 def metro_confirm(trace_id):
     """人工复核回写，闭环 REVIEW/BLOCKED。"""
     data = request.get_json(silent=True) or {}
-    confirmed_by = data.get('confirmed_by') or request.form.get('confirmed_by') or ''
+    # 复核人以登录身份为准，不信任客户端传值——证据链上的责任主体不可伪造
+    confirmed_by = g.current_user
     action = data.get('confirm_action') or request.form.get('confirm_action') or ''
     if not action:
         return jsonify({"error": "confirm_action 必填(如: 确认安全/已取出工具)"}), 400
@@ -1357,6 +1415,7 @@ def metro_confirm(trace_id):
 
 
 @app.route('/metro/inspections', methods=['GET'])
+@require_auth
 def metro_list():
     """审计查询，支持 device_code / worker_id / result 过滤。"""
     rows = list_inspections(
@@ -1365,20 +1424,23 @@ def metro_list():
         result=request.args.get('result'),
         limit=int(request.args.get('limit', 100)),
     )
-    base = request.host_url.rstrip('/')
     for r in rows:
         if r.get('image_file'):
-            r['image_url'] = f"{base}/metro-file/{r['image_file']}"
+            r['image_url'] = build_metro_file_url(r['image_file'])
         if r.get('annotated_file'):
-            r['annotated_url'] = f"{base}/metro-file/{r['annotated_file']}"
+            r['annotated_url'] = build_metro_file_url(r['annotated_file'])
     return jsonify({"items": rows, "count": len(rows)})
 
 
 @app.route('/metro-file/<filename>')
 def metro_file(filename):
     """读取检测证据图/标注图。"""
+    if not verify_file_token('metro-file', filename, request.args.get('st', '')):
+        return jsonify({"error": "链接无效或已过期"}), 403
     return send_from_directory(METRO_EVIDENCE_FOLDER, filename)
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True, threaded=True)
+    # debug 缺省关闭：Werkzeug 调试器暴露在 0.0.0.0 等于给局域网开远程代码执行后门。
+    # 本机排障时在 .env 里临时设 FLASK_DEBUG=1。
+    app.run(host='0.0.0.0', port=5001, debug=FLASK_DEBUG, threaded=True)

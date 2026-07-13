@@ -48,6 +48,10 @@
           <view class="icon-box" style="background:#e8f5e9; color:#2e7d32;">🚇</view>
           <text class="item-text">地铁模式</text>
         </view>
+        <view class="grid-item" @tap="goToPoseGuide">
+          <view class="icon-box" style="background:#fff9db; color:#b8860b;">🧍</view>
+          <text class="item-text">姿态引导拍摄</text>
+        </view>
       </view>
     </scroll-view>
 
@@ -148,6 +152,9 @@ export default {
     },
     goToMetro() {
       uni.navigateTo({ url: '/pages/metro/index' })
+    },
+    goToPoseGuide() {
+      uni.navigateTo({ url: '/pages/pose-guide/index' })
     }
   }
 }

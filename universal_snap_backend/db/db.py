@@ -2,23 +2,13 @@ import pymysql
 import sys
 import os
 
-# --- 核心修复代码：将项目根目录加入搜索路径 ---
-# 获取当前文件的绝对路径，再取两层父目录（即回到 universal_snap_backend）
+# 将后端根目录加入搜索路径，保证从任意工作目录都能 import settings
 root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if root_path not in sys.path:
     sys.path.insert(0, root_path)
-# ------------------------------------------
 
-# 如果你已经改名为 settings.py，这里就写 settings
-try:
-    from settings import DB_CONFIG
-except ImportError:
-    # 如果没改名，依然叫 config
-    from config import DB_CONFIG
-
+from settings import DB_CONFIG
 from werkzeug.security import generate_password_hash, check_password_hash
-
-# ... 剩下的代码保持不变 ...
 
 def insert_photo_analysis(filename, advice, score, user_id):
     try:
@@ -98,7 +88,7 @@ def register_user(username, password):
         return True, "注册成功"
     except Exception as e:
         print("注册失败:", e)
-        return False, str(e)
+        return False, "注册失败，请稍后重试"
     finally:
         try:
             cursor.close()
@@ -177,7 +167,7 @@ def update_user_info(username, nickname=None, avatar=None):
         return True, "更新成功"
     except Exception as e:
         print("更新用户信息失败:", e)
-        return False, str(e)
+        return False, "更新失败，请稍后重试"
     finally:
         try:
             cursor.close()
@@ -207,7 +197,7 @@ def update_user_password(username, old_password, new_password):
         return True, "密码修改成功"
     except Exception as e:
         print("修改密码失败:", e)
-        return False, str(e)
+        return False, "修改失败，请稍后重试"
     finally:
         try:
             cursor.close()

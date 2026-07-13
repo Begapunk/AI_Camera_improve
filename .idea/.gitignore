@@ -6,3 +6,5 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+# Claude Code 插件标签页状态
+/claudeCodeTabState.xml

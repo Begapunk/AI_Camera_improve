@@ -25,6 +25,11 @@ unpackage/
 *.log
 app.log
 
+# 用户隐私数据（上传照片/合成语音/本地人脸库）——绝不入库
+universal_snap_backend/uploads/
+universal_snap_backend/static/audio/
+universal_snap_backend/local_face_db/
+
 # 大体积模型资产（首次运行/手动下载，不入库）
 universal_snap_backend/models/
 *.task

@@ -33,7 +33,7 @@
       </view>
     </view>
 
-    <scroll-view class="content" scroll-y enhanced :show-scrollbar="false">
+    <view class="content">
       <view class="menu-section">
         <view class="menu-title">我的功能</view>
         <view class="menu-list">
@@ -97,7 +97,7 @@
       <view class="logout-section">
         <button class="logout-btn" @tap="handleLogout">退出登录</button>
       </view>
-    </scroll-view>
+    </view>
 
     <view class="tabbar">
       <view class="tab" @tap="goHome">
@@ -221,7 +221,8 @@ export default {
   top: 0;
   left: 0;
   right: 0;
-  height: 200px;
+  /* 需要盖住 profile-info 里 头像+昵称+ID 三行内容，留够余量避免 ID 文字掉出橙色背景 */
+  height: 260px;
   background: linear-gradient(135deg, #FFB347 0%, #FF8C42 50%, #EF6C3E 100%);
   border-radius: 0 0 48px 48px;
 }
@@ -281,6 +282,8 @@ export default {
 .user-id {
   font-size: 24px;
   color: rgba(255,255,255,0.85);
+  /* 防止 header-bg 高度和内容高度对不齐时，白字掉到浅色背景上看不清 */
+  text-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
 
 .stats-row {
@@ -462,7 +465,7 @@ export default {
 }
 
 .header-bg {
-  height: 240rpx;
+  height: 320rpx;
   border-radius: 0 0 48rpx 48rpx;
 }
 

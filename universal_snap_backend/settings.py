@@ -27,6 +27,12 @@ PALIGEMMA_MODEL_PATH = os.getenv("PALIGEMMA_MODEL_PATH", "google/paligemma-3b-mi
 # 登录态签名密钥
 SECRET_KEY = os.getenv("SECRET_KEY", "")
 
+# 跨域来源白名单（逗号分隔），缺省 * 便于局域网真机调试；上生产建议收紧
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
+
+# Flask debug 开关，缺省关闭（调试器暴露在 0.0.0.0 等于远程代码执行）
+FLASK_DEBUG = os.getenv("FLASK_DEBUG", "0") == "1"
+
 # 数据库
 DB_CONFIG = {
     'host': os.getenv("DB_HOST", "localhost"),

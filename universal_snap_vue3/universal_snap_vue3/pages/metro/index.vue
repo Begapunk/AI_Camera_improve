@@ -15,8 +15,8 @@
       <!-- ① 选择/扫码 转辙机（可选，不再是检测的前置条件） -->
       <view class="card">
         <view class="card-title">① 选择转辙机（可选）</view>
-        <view class="row">
-          <input class="ipt" v-model="deviceCode" placeholder="输入或扫码转辙机编号（可跳过）" />
+        <input class="ipt ipt-full" v-model="deviceCode" placeholder="输入或扫码转辙机编号（可跳过）" />
+        <view class="row row-actions">
           <view class="mini-btn" @tap="scanDevice">扫码</view>
           <view class="mini-btn ghost" @tap="loadDevice">查询</view>
         </view>
@@ -294,11 +294,17 @@ export default {
 .card-title { font-size: 30rpx; font-weight: 700; color: #2d3e50; margin-bottom: 20rpx; }
 
 .row { display: flex; align-items: center; gap: 16rpx; }
-.ipt { flex: 1; background: #f4f6f8; border-radius: 12rpx; padding: 18rpx 20rpx;
-  font-size: 28rpx; color: #2d3e50; }
+.row-actions { margin-top: 16rpx; }
+.ipt { flex: 1; min-width: 0; background: #f4f6f8; border-radius: 12rpx; padding: 18rpx 20rpx;
+  font-size: 28rpx; color: #2d3e50; box-sizing: border-box; }
+/* 独占一行的编号输入框：比塞在按钮旁边的版本更高更宽，文字不再被挤 */
+.ipt-full {
+  width: 100%; height: 88rpx; line-height: 88rpx; padding: 0 24rpx;
+  font-size: 30rpx; box-sizing: border-box;
+}
 .ipt.picker { color: #2d3e50; }
-.mini-btn { background: #2e7d32; color: #fff; padding: 18rpx 24rpx; border-radius: 12rpx;
-  font-size: 26rpx; white-space: nowrap; }
+.mini-btn { flex: 1; text-align: center; background: #2e7d32; color: #fff; padding: 20rpx 24rpx; border-radius: 12rpx;
+  font-size: 28rpx; white-space: nowrap; }
 .mini-btn.ghost { background: #e8f5e9; color: #2e7d32; }
 
 .dev-info { margin-top: 20rpx; display: flex; flex-direction: column; gap: 8rpx; }

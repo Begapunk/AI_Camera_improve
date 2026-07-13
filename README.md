@@ -80,7 +80,15 @@ AI 分析拍摄环境的光线、背景、构图，给出具体可执行的改�
 面向轨道交通场景，检测转辙机内部遗留物（工具、零件等）：
 - **三路并联检测**：YOLO 闭集检测 + 基准差分 + 异常兜底
 - **红黄绿三级结论**：fail-safe 安全闸门，宁可误报不可漏报
-- **全链路可追溯**：检测记录落库，证据可审计
+- **全链路可追溯**：检测记录落库，证据可审计，检测/登记/复核/审计查询接口均需登录
+
+### 🧍 姿态引导拍摄
+上传/拍摄一张模板照片，实时对比用户姿态并引导摆出同款 pose：
+- **动态权重余弦相似度**：按躯干、大臂、小臂、大腿、小腿分别计算关键点向量夹角余弦，某部位置信度不足（如自拍时腿部不入镜）会动态从总权重中剔除，不再"缺腿就扣分"
+- **AI 语义指导**：实时计算误差最大的肢体，生成"左手臂再抬高一点"这类中文指导语（预留 Hook，可平滑替换为远端 VLM/LLM 生成）
+- **纯视觉降级**：模板图无法识别骨骼（如二次元图片）时自动切换半透明叠加比对模式，不阻断流程
+- **画中画自由布局**：模板缩略图可全屏拖拽、双指缩放，不再固定死角落
+- **交互权转移**：姿态对齐后不自动拍照，而是点亮快门按钮（统一 `#FFD700` 高亮），由用户自己按下
 
 ---
 
@@ -206,21 +214,22 @@ AI_Camera_improve/
 │       │   ├── template/        # 模板评分
 │       │   ├── metro/           # 地铁 FOD 检测
 │       │   ├── profile/         # 个人中心（设置/历史记录/帮助中心/关于我们）
+│       │   ├── pose-guide/      # 姿态引导拍摄（动态权重比对 + PiP 自由拖拽）
 │       │   └── ar/              # AR 实时引导
 │       ├── static/              # 静态资源
-│       └── utils/               # 工具函数
+│       └── utils/               # 工具函数（request.js / poseSimilarity.js / poseTemplate.js）
 │
 ├── universal_snap_backend/      # 后端 Flask 项目
 │   ├── app.py                   # 主应用入口 & API 路由
 │   ├── Face_ID.py               # 人脸识别封装
 │   ├── face_local.py            # 本地人脸识别
-│   ├── config.py / settings.py  # 配置管理
+│   ├── settings.py               # 唯一配置入口（.env 加载）
 │   ├── db/                      # 数据库操作
 │   │   ├── db.py                # 用户 & 照片分析
 │   │   └── metro_db.py          # 地铁检测记录
 │   ├── metro/                   # 地铁 FOD 检测核心
-│   ├── security/                # 密码安全校验
-│   ├── uploads/                 # 上传文件存储
+│   ├── security/                # 登录态签发 + 文件访问签名 + 密码校验
+│   ├── uploads/                 # 上传文件存储（不入库，访问需签名 URL）
 │   └── static/audio/            # 语音合成文件
 │
 ├── paligemma2-3b-ft-docci-448/  # PaliGemma 本地模型
@@ -263,13 +272,13 @@ AI_Camera_improve/
 | `/login-face` | POST | 人脸登录（返回登录态 Token） |
 | `/analyze` | POST | 自拍分析（Qwen-VL，需登录，写入分析记录） |
 | `/analyze-grok` | POST | 自拍分析（Grok，需登录，写入分析记录） |
-| `/smart-analyze` | POST | 智能构图测距 |
-| `/pro-analyze` | POST | 专业模式三段流水线 |
-| `/detect-pose` | POST | YOLOv8 骨骼关键点检测 |
-| `/detect-gesture` | POST | MediaPipe 手势识别（剪刀手拍照触发） |
-| `/generate-sketch` | POST | OpenCV 透明线稿生成 |
+| `/smart-analyze` | POST | 智能构图测距（需登录） |
+| `/pro-analyze` | POST | 专业模式三段流水线（需登录） |
+| `/detect-pose` | POST | YOLOv8 骨骼关键点检测（需登录） |
+| `/detect-gesture` | POST | MediaPipe 手势识别，剪刀手拍照触发（需登录） |
+| `/generate-sketch` | POST | OpenCV 透明线稿生成（需登录） |
 | `/analyze-env` | POST | 环境分析（需登录，写入分析记录） |
-| `/analyze-template` | POST | 图像美学评分（可选保存为模板） |
+| `/analyze-template` | POST | 图像美学评分（需登录，可选保存为模板） |
 | `/api/templates` | GET | 模板合集列表（需登录，按用户隔离） |
 | `/api/delete` | DELETE | 删除模板（需登录，校验归属） |
 | `/api/history` | GET | 自拍/环境分析历史记录（需登录） |
@@ -277,8 +286,10 @@ AI_Camera_improve/
 | `/api/user/update` | POST | 更新昵称/头像（需登录） |
 | `/api/user/change-password` | POST | 修改密码（需登录） |
 | `/update-face` | POST | 注册/更新人脸（需登录） |
-| `/metro/detect` | POST | 地铁 FOD 检测 |
-| `/metro/devices/register` | POST | 转辙机设备登记 |
+| `/metro/detect` | POST | 地铁 FOD 检测（需登录，证据链写入失败会自动降级人工复核） |
+| `/metro/devices/register` | POST | 转辙机设备登记（需登录） |
+| `/metro/inspections` | GET | 检测审计查询（需登录） |
+| `/uploads/<file>`、`/static/audio/<file>`、`/metro-file/<file>` | GET | 文件访问，均需携带签发时附带的 `?st=` 签名，防止陌生人枚举文件名拉取他人照片 |
 
 ---
 
@@ -306,8 +317,14 @@ GROK_API_KEY=your_grok_key
 # PaliGemma 本地模型路径
 PALIGEMMA_MODEL_PATH=paligemma2-3b-ft-docci-448
 
-# 登录态签名密钥（务必设置为随机字符串，用于签发/校验用户 Token）
+# 登录态 + 文件访问签名密钥（务必设置为随机字符串，用于签发/校验用户 Token 及图片/语音访问链接）
 SECRET_KEY=your_random_secret_key
+
+# 跨域来源白名单，逗号分隔，默认 *（生产环境建议收紧）
+# CORS_ORIGINS=*
+
+# Flask debug 开关，默认关闭；开启后 Werkzeug 调试器暴露在局域网等于远程代码执行，仅本机排障时开
+# FLASK_DEBUG=0
 
 # MySQL 数据库
 DB_HOST=localhost

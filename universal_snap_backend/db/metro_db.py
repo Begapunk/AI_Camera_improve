@@ -7,10 +7,7 @@
 import json
 import pymysql
 
-try:
-    from settings import DB_CONFIG
-except ImportError:
-    from config import DB_CONFIG
+from settings import DB_CONFIG
 
 
 def _conn():
@@ -52,7 +49,7 @@ def upsert_device(device_code, family, model, station=None, location=None,
         return True, "保存成功"
     except Exception as e:
         print("设备登记失败:", e)
-        return False, str(e)
+        return False, "设备登记失败，请稍后重试"
     finally:
         try:
             cursor.close(); conn.close()
@@ -132,7 +129,7 @@ def confirm_inspection(trace_id, confirmed_by, confirm_action):
         return True, "复核已记录"
     except Exception as e:
         print("复核回写失败:", e)
-        return False, str(e)
+        return False, "复核写入失败，请稍后重试"
     finally:
         try:
             cursor.close(); conn.close()
