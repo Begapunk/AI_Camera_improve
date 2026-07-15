@@ -39,7 +39,8 @@ export function cocoArrayToNamedPoints(kpArray) {
 // 主要肢体向量定义：from/to 支持单个关键点名，或多个关键点名取中点（用于躯干干线）。
 // weight 是该肢体在总分中的权重，核心躯干权重更高——注意这只是"满编"权重，
 // 实际参与打分时会按需求1动态重新归一化（缺失/低置信度的肢体权重从分母里剔除）。
-const LIMB_DEFS = [
+// 导出供 UI 层复用（骨架线可视化需要和打分完全一致的肢体拓扑，不能各画各的产生歧义）
+export const LIMB_DEFS = [
   { name: 'torso', from: ['left_shoulder', 'right_shoulder'], to: ['left_hip', 'right_hip'], weight: 3 },
   { name: 'left_upper_arm', from: 'left_shoulder', to: 'left_elbow', weight: 1.5 },
   { name: 'right_upper_arm', from: 'right_shoulder', to: 'right_elbow', weight: 1.5 },
@@ -52,15 +53,6 @@ const LIMB_DEFS = [
 ];
 
 const FULL_WEIGHT = LIMB_DEFS.reduce((s, d) => s + d.weight, 0);
-
-// 中文标签 + 需求5 指导语生成共用
-const LIMB_LABELS = {
-  torso: '躯干',
-  left_upper_arm: '左大臂', right_upper_arm: '右大臂',
-  left_forearm: '左小臂', right_forearm: '右小臂',
-  left_thigh: '左大腿', right_thigh: '右大腿',
-  left_shin: '左小腿', right_shin: '右小腿',
-};
 
 // 取一个或多个关键点的坐标中点；任一关键点缺失则返回 null。
 // score 取参与中点计算的各点里的最小值（躯干干线要求肩+髋都靠谱，木桶效应）。
@@ -168,7 +160,10 @@ export function calculatePoseSimilarity(userLandmarks, templateLandmarks, option
 }
 
 /**
- * 需求5：生成一句中文指导语。
+ * 需求5：生成 AI 指导语——返回 { key, params } 而不是拼好的字符串，
+ * 由调用方（pose-guide/index.vue）用 $t(key, params) 解析成当前 UI 语言的文本。
+ * 之所以不在这里直接拼中文：这个项目要支持 8 种语言，LIMB_LABELS 这种硬编码中文标签
+ * 没法直接塞进英文/日文句子里，必须让肢体名和句式模板各自独立翻译，再做参数插值。
  *
  * 当前用基础 if-else 规则实现，但入参刻意保持"结构化、自解释"：
  * userLandmarks/templateLandmarks 是完整关键点字典，maxErrorPart 是
@@ -179,23 +174,30 @@ export function calculatePoseSimilarity(userLandmarks, templateLandmarks, option
  * @param {Record<string,{x:number,y:number,score?:number}>} userLandmarks
  * @param {Record<string,{x:number,y:number,score?:number}>} templateLandmarks
  * @param {{ name: string, errorDeg: number, direction: 'cw'|'ccw' } | null} maxErrorPart
- * @returns {string}
+ * @returns {{ key: string, params: { limb?: string, deg?: number } }}
+ *   key 对应 locale 文件里 poseGuide.guidance.* 的翻译键；
+ *   params.limb 是肢体的原始英文名（如 'left_upper_arm'），调用方需要再查一次
+ *   poseGuide.limbNames.<limb> 才能拿到翻译后的肢体名，两段插值不能合并成一步，
+ *   否则 LIMB_LABELS 的中文就会直接混进其他语言的句子里。
  */
 export function generateAIPrompt(userLandmarks, templateLandmarks, maxErrorPart) {
-  if (!maxErrorPart) return '暂无可比较的部位，请正对镜头';
-  if (maxErrorPart.errorDeg < 8) return '姿态非常接近模板，保持住';
+  if (!maxErrorPart) return { key: 'poseGuide.guidance.noComparableParts', params: {} };
+  if (maxErrorPart.errorDeg < 8) return { key: 'poseGuide.guidance.veryClose', params: {} };
 
   // 简化说明：cw/ccw 只是一个标量旋转方向，把它翻译成"抬高/放下""左转/右转"
   // 对于肢体当前朝向接近垂直/水平的常见姿势足够直观，但极端斜向角度时可能不够精确——
   // 这正是留出 generateAIPrompt 这个 Hook 的原因，未来交给 VLM/LLM 看图直接描述会更准确。
-  const label = LIMB_LABELS[maxErrorPart.name] || maxErrorPart.name;
-
   if (maxErrorPart.name === 'torso') {
-    return maxErrorPart.direction === 'cw' ? '身体再向右转一点' : '身体再向左转一点';
+    return {
+      key: maxErrorPart.direction === 'cw' ? 'poseGuide.guidance.torsoRight' : 'poseGuide.guidance.torsoLeft',
+      params: {},
+    };
   }
   if (maxErrorPart.name.includes('thigh') || maxErrorPart.name.includes('shin')) {
-    return `${label}角度不太对，偏差约 ${maxErrorPart.errorDeg}°`;
+    return { key: 'poseGuide.guidance.legAngle', params: { limb: maxErrorPart.name, deg: maxErrorPart.errorDeg } };
   }
-  const turnWord = maxErrorPart.direction === 'cw' ? '往下压一点' : '再抬高一点';
-  return `${label}${turnWord}，偏差约 ${maxErrorPart.errorDeg}°`;
+  return {
+    key: maxErrorPart.direction === 'cw' ? 'poseGuide.guidance.limbLower' : 'poseGuide.guidance.limbRaise',
+    params: { limb: maxErrorPart.name, deg: maxErrorPart.errorDeg },
+  };
 }

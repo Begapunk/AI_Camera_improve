@@ -1,0 +1,40 @@
+/**
+ * ar-lidar-ranging 插件的跨端类型声明。
+ * app-ios/index.uts 是当前唯一实现（LiDAR 是 iPhone 12 Pro+/iPad Pro 2020+ 专属硬件，
+ * Android 没有对应能力，这里不提供 app-android 实现——JS 层调用前务必先判断平台）。
+ */
+
+export type ARLidarSupportResult = {
+	supported : boolean
+}
+
+export type ARRangingResult = {
+	/** 屏幕中心点的深度距离，单位米 */
+	distanceMeters : number
+	/** ARKit 原始置信度：0=low 1=medium 2=high，JS 层可按需过滤低置信度结果 */
+	confidence : number
+	/** 采样时刻的时间戳（毫秒） */
+	timestamp : number
+}
+
+export type ARSessionErrorResult = {
+	code : string
+	message : string
+}
+
+export interface ArLidarRangingModule {
+	/** 检测当前设备是否支持 LiDAR 场景深度语义（同步返回，不需要启动 AR 会话） */
+	isLidarSupported() : ARLidarSupportResult
+
+	/**
+	 * 启动 AR 会话并持续输出屏幕中心点的深度测距结果。
+	 * 重复调用会先自动停止上一个会话，避免同时占用两个 ARSession。
+	 */
+	startRanging(
+		callback : (result : ARRangingResult) => void,
+		errorCallback : (error : ARSessionErrorResult) => void
+	) : void
+
+	/** 停止 AR 会话，释放摄像头/传感器占用（页面 onHide/onUnload 必须调用） */
+	stopRanging() : void
+}

@@ -4,22 +4,22 @@
       <view class="logo-icon">
         <text class="logo-camera">📷</text>
       </view>
-      <text class="logo-text">万能拍</text>
+      <text class="logo-text">{{ $t('login.appName') }}</text>
     </view>
 
     <view v-if="showCamera" class="face-card">
-      <view class="card-title">面部识别</view>
+      <view class="card-title">{{ $t('login.faceRecognition') }}</view>
       <view class="camera-wrapper">
         <camera device-position="front" flash="off" class="camera-view"></camera>
         <view class="scan-line"></view>
       </view>
-      <button @click="takePhotoAndLogin" class="btn-primary">立即识别</button>
-      <view class="cancel-link" @click="showCamera = false">返回账号登录</view>
+      <button @click="takePhotoAndLogin" class="btn-primary">{{ $t('login.recognizeNow') }}</button>
+      <view class="cancel-link" @click="showCamera = false">{{ $t('login.backToAccountLogin') }}</view>
     </view>
     <view v-else class="form-card">
       <view class="card-header">
-        <text class="card-title">账号登录</text>
-        <text class="card-subtitle">欢迎回来，请填写信息</text>
+        <text class="card-title">{{ $t('login.accountLogin') }}</text>
+        <text class="card-subtitle">{{ $t('login.welcomeSubtitle') }}</text>
       </view>
 
       <view class="form-group">
@@ -27,7 +27,7 @@
           <text class="input-icon">👤</text>
           <input
             type="text"
-            placeholder="请输入用户名"
+            :placeholder="$t('login.usernamePlaceholder')"
             v-model="username"
             class="input"
             placeholder-class="input-placeholder"
@@ -41,7 +41,7 @@
           <input
             type="text"
             password
-            placeholder="请输入密码"
+            :placeholder="$t('login.passwordPlaceholder')"
             v-model="password"
             class="input"
             placeholder-class="input-placeholder"
@@ -54,7 +54,7 @@
           <text class="input-icon">📷</text>
           <input
             type="text"
-            placeholder="请输入计算结果"
+            :placeholder="$t('login.captchaPlaceholder')"
             v-model="captchaAnswer"
             class="input"
             placeholder-class="input-placeholder"
@@ -69,13 +69,13 @@
         ></image>
       </view>
 
-      <button @click="onLogin" class="btn-primary">登录</button>
-      <button @click="showCamera = true" class="btn-secondary">人脸识别登录</button>
+      <button @click="onLogin" class="btn-primary">{{ $t('login.loginBtn') }}</button>
+      <button @click="openFaceLogin" class="btn-secondary">{{ $t('login.faceLoginBtn') }}</button>
     </view>
 
     <view v-if="!showCamera" class="to-register">
-      <text class="register-text">还没有账号？</text>
-      <navigator url="/pages/login/register" class="register-link">去注册</navigator>
+      <text class="register-text">{{ $t('login.noAccountYet') }}</text>
+      <navigator url="/pages/login/register" class="register-link">{{ $t('login.goRegister') }}</navigator>
     </view>
 
     <view v-if="message" class="message-toast">{{ message }}</view>
@@ -85,7 +85,12 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { useI18n } from '@/utils/i18nCore.js'
 import { fetchCaptchaApi, loginApi, loginFaceApi } from '@/utils/request.js'
+import { requestPermission } from '@/utils/permission.js'
+import { readFileAsBase64 } from '@/utils/fileBase64.js'
+
+const { t } = useI18n({ useScope: 'global' })
 
 const username = ref('')
 const password = ref('')
@@ -107,7 +112,7 @@ const fetchCaptcha = () => {
       }
     })
     .catch(() => {
-      uni.showToast({ title: '验证码加载失败', icon: 'none' })
+      uni.showToast({ title: t('login.captchaLoadFailed'), icon: 'none' })
     })
 }
 
@@ -119,16 +124,16 @@ onLoad(() => {
 // 账号登录
 async function onLogin () {
   if (!username.value || !password.value) {
-    message.value = '请完整填写信息'
+    message.value = t('login.fillAllFields')
     return
   }
   if (!captchaAnswer.value) {
-    message.value = '请填写计算结果'
+    message.value = t('login.fillCaptcha')
     return
   }
-  
+
   message.value = ''
-  uni.showLoading({ title: '登录中...', mask: true })
+  uni.showLoading({ title: t('login.loggingIn'), mask: true })
   
   loginApi({
       username: username.value,
@@ -138,62 +143,99 @@ async function onLogin () {
     })
     .then((res) => {
       uni.hideLoading()
-      if (res.statusCode === 200 && res.data.token) {
-        uni.showToast({ title: '登录成功', icon: 'success' })
-        uni.setStorageSync('username', username.value)
+      if (res.statusCode === 200 && res.data.message) {
+        uni.showToast({ title: t('login.loginSuccess'), icon: 'success' })
         uni.setStorageSync('token', res.data.token)
+        uni.setStorageSync('username', username.value)
         setTimeout(() => {
           uni.redirectTo({ url: '/pages/home/index' })
         }, 1000)
       } else {
         fetchCaptcha()
-        message.value = res.data.error || res.data.message || '登录失败'
+        message.value = res.data.error || res.data.message || t('login.loginFailed')
       }
     })
     .catch(() => {
       uni.hideLoading()
       fetchCaptcha()
-      message.value = '请求失败，请稍后重试'
+      message.value = t('login.requestFailedRetry')
     })
 }
 
-// 人脸识别登录
+// 拿到人脸图 base64 后的统一登录流程（小程序 <camera> 拍照 / App 系统相机拍照共用）
+function doFaceLogin(base64Data) {
+  uni.showLoading({ title: t('login.recognizingIdentity'), mask: true });
+
+  loginFaceApi(base64Data)
+    .then((loginRes) => {
+      uni.hideLoading();
+      if (loginRes.statusCode === 200 && loginRes.data.username) {
+        uni.showToast({ title: t('login.recognizeSuccess'), icon: 'success' });
+        uni.setStorageSync('token', loginRes.data.token);
+        uni.setStorageSync('username', loginRes.data.username);
+        setTimeout(() => {
+          uni.redirectTo({ url: '/pages/home/index' });
+        }, 1000);
+      } else {
+        uni.showModal({
+          title: t('login.recognizeFailed'),
+          content: loginRes.data.error || t('login.noFaceMatched'),
+          showCancel: false
+        });
+      }
+    })
+    .catch(() => {
+      uni.hideLoading();
+      uni.showToast({ title: t('login.networkRequestFailed'), icon: 'none' });
+    });
+}
+
+// 人脸识别登录入口
+function openFaceLogin() {
+  // #ifdef APP-PLUS
+  // App 端不依赖 <camera> 组件（那是小程序系组件，App-vue 支持不稳），
+  // 直接调系统相机拍一张，系统会自行弹相机权限框
+  uni.chooseImage({
+    count: 1,
+    sourceType: ['camera'],
+    sizeType: ['compressed'],
+    success: (res) => {
+      readFileAsBase64(res.tempFilePaths[0])
+        .then(doFaceLogin)
+        .catch(() => uni.showToast({ title: t('login.cameraCallFailed'), icon: 'none' }));
+    },
+    fail: () => {
+      // 用户取消拍照不算错误，静默返回
+    }
+  });
+  return;
+  // #endif
+
+  // #ifndef APP-PLUS
+  // 小程序端：打开摄像头前先申请权限，拒绝就留在账号登录，不强行切视图
+  requestPermission('camera')
+    .then(() => {
+      showCamera.value = true
+    })
+    .catch(() => {
+      uni.showToast({ title: t('login.cameraCallFailed'), icon: 'none' })
+    })
+  // #endif
+}
+
+// 小程序端 <camera> 视图里的"立即识别"按钮
 function takePhotoAndLogin() {
   const ctx = uni.createCameraContext();
   ctx.takePhoto({
     quality: 'high',
     success: (res) => {
       const filePath = res.tempImagePath || res.tempFilePath;
-      const fs = uni.getFileSystemManager();
-      const base64Data = fs.readFileSync(filePath, 'base64');
-      
-      uni.showLoading({ title: '正在识别身份...', mask: true });
-      
-      loginFaceApi(base64Data)
-        .then((loginRes) => {
-          uni.hideLoading();
-          if (loginRes.statusCode === 200 && loginRes.data.username) {
-            uni.showToast({ title: '识别成功', icon: 'success' });
-            uni.setStorageSync('username', loginRes.data.username);
-            uni.setStorageSync('token', loginRes.data.token);
-            setTimeout(() => {
-              uni.redirectTo({ url: '/pages/home/index' });
-            }, 1000);
-          } else {
-            uni.showModal({ 
-              title: '识别失败', 
-              content: loginRes.data.error || '未匹配到人脸信息',
-              showCancel: false 
-            });
-          }
-        })
-        .catch(() => {
-          uni.hideLoading();
-          uni.showToast({ title: '网络请求失败', icon: 'none' });
-        });
+      readFileAsBase64(filePath)
+        .then(doFaceLogin)
+        .catch(() => uni.showToast({ title: t('login.cameraCallFailed'), icon: 'none' }));
     },
     fail: () => {
-      uni.showToast({ title: '摄像头调用失败', icon: 'none' });
+      uni.showToast({ title: t('login.cameraCallFailed'), icon: 'none' });
     }
   });
 }

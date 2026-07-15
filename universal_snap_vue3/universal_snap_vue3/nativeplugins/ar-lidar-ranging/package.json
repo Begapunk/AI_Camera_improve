@@ -1,0 +1,7 @@
+{
+    "//": "本地原生插件（nativeplugins/ 目录下）的 package.json 字段名请务必以 HBuilderX『新建 uts 原生插件』向导实际生成的文件为准替换/核对，这里只是占位内容，真正决定能不能编译过的是向导生成的那一份。",
+    "name": "ar-lidar-ranging",
+    "id": "ar-lidar-ranging",
+    "version": "1.0.0",
+    "description": "ARKit LiDAR 场景深度测距（仅 iOS，支持 LiDAR 的机型）"
+}

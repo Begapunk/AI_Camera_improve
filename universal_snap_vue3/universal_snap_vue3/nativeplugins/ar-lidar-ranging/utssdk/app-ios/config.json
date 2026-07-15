@@ -1,0 +1,9 @@
+{
+    "//": "以下 key 名请以 HBuilderX『新建 uts 原生插件』向导生成的模板里 config.json 实际字段为准核对，这里给的是需要声明的内容（用到的系统 framework 和最低系统版本），不保证字段名和当前 HBuilderX 版本完全一致。",
+    "frameworks": [
+        "ARKit",
+        "AVFoundation",
+        "CoreVideo"
+    ],
+    "deploymentTarget": "13.0"
+}

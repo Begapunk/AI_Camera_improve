@@ -4,7 +4,7 @@
       <view class="back-btn" @click="goBack">
         <text class="back-icon">←</text>
       </view>
-      <text class="nav-title">帮助中心</text>
+      <text class="nav-title">{{ $t('profileHelp.title') }}</text>
       <view class="right-placeholder"></view>
     </view>
 
@@ -12,11 +12,11 @@
       <view class="faq-list">
         <view v-for="(item, index) in faqs" :key="index" class="faq-item" @click="toggle(index)">
           <view class="faq-question">
-            <text class="q-text">{{ item.q }}</text>
+            <text class="q-text">{{ $t('profileHelp.' + item.q) }}</text>
             <text class="q-arrow" :class="{ open: item.open }">›</text>
           </view>
           <view v-if="item.open" class="faq-answer">
-            <text class="a-text">{{ item.a }}</text>
+            <text class="a-text">{{ $t('profileHelp.' + item.a) }}</text>
           </view>
         </view>
       </view>
@@ -28,35 +28,36 @@
 export default {
   data() {
     return {
+      // 显示文案走 profileHelp.<key> 翻译键，这里只留 key
       faqs: [
         {
-          q: '智能拍摄助手里的几种模式有什么区别？',
-          a: '标准模式给出通用构图建议；智能构图会实时测算主体占比并语音提示前进/后退；专业模式会结合本地场景描述与云端模型生成更精细的拍摄方案，耗时略长。',
+          q: 'faq1Q',
+          a: 'faq1A',
           open: true
         },
         {
-          q: '“我的模板”里保存的照片别人能看到吗？',
-          a: '不能。模板与您的账号绑定，只有登录后的您自己可以查看和删除，其他用户无法访问。',
+          q: 'faq2Q',
+          a: 'faq2A',
           open: false
         },
         {
-          q: '人脸登录如何开启？',
-          a: '进入"我的 - 设置 - 人脸登录"，点击录入人脸并正对摄像头完成采集即可。之后登录页可选择"人脸识别登录"。',
+          q: 'faq3Q',
+          a: 'faq3A',
           open: false
         },
         {
-          q: '分析记录/环境记录里没有数据？',
-          a: '只有在自拍分析或环境分析页面实际拍摄并获得 AI 建议后，才会生成一条记录，历史记录不会预先填充。',
+          q: 'faq4Q',
+          a: 'faq4A',
           open: false
         },
         {
-          q: '“我的”页面顶部的连续天数怎么计算？',
-          a: '只要当天进行过一次自拍分析、环境分析或保存过模板，就算作一次活跃，连续天数按最近的连续活跃自然日累计，中断一天会重新计数。',
+          q: 'faq5Q',
+          a: 'faq5A',
           open: false
         },
         {
-          q: '地铁模式是做什么用的？',
-          a: '面向轨道交通场景的转辙机异物(FOD)检测：先登记设备基准图，再通过三路并联检测与基准差分比对，生成带证据链的巡检记录。',
+          q: 'faq6Q',
+          a: 'faq6A',
           open: false
         }
       ]

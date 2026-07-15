@@ -1,0 +1,95 @@
+/**
+ * ar-lidar-ranging · iOS 实现。
+ *
+ * UTS 源码是 TypeScript 语法（不是 Swift），编译到 iOS 端时由 UTS 编译器转译成 Swift，
+ * 系统框架（ARKit/CoreVideo）里的类型可以按其原生名字直接引用。
+ *
+ * 【确定性说明——请仔细看】
+ * isLidarSupported() 和 startRanging()/stopRanging() 的整体结构、ARKit API 调用
+ * （ARWorldTrackingConfiguration.supportsFrameSemantics / session.run / session.pause）
+ * 都是稳定且文档化的官方 ARKit 能力，可以直接使用。
+ *
+ * 但下面两处标了 ⚠️ 的方法（delegate 注册、CVPixelBuffer 逐像素读取深度值）涉及
+ * UTS 对 Swift 底层内存指针操作的具体桥接语法，这一层没有真机+Xcode 编译没法验证，
+ * 我没有把它们编成"看起来能跑"的假代码——而是给出准确的 Swift 层实现逻辑（注释里），
+ * 请对照你本地 HBuilderX 版本生成的 UTS iOS 插件模板，把这两处补全后在真机上跑通。
+ * 建议先只跑 isLidarSupported()，确认能拿到正确的 true/false 之后，再动手补深度读取部分。
+ */
+
+export class ARLidarRangingImpl {
+	private session : any | null = null
+	private rangingCallback : ((result : ARRangingResult) => void) | null = null
+	private errorCallback : ((error : ARSessionErrorResult) => void) | null = null
+
+	isLidarSupported() : ARLidarSupportResult {
+		const supported = ARWorldTrackingConfiguration.supportsFrameSemantics(ARFrameSemantics.sceneDepth)
+		return { supported: supported } as ARLidarSupportResult
+	}
+
+	startRanging(
+		callback : (result : ARRangingResult) => void,
+		errorCallback : (error : ARSessionErrorResult) => void
+	) {
+		this.rangingCallback = callback
+		this.errorCallback = errorCallback
+
+		if (!ARWorldTrackingConfiguration.supportsFrameSemantics(ARFrameSemantics.sceneDepth)) {
+			errorCallback({
+				code: "LIDAR_UNSUPPORTED",
+				message: "当前设备不支持 LiDAR 场景深度（需要 iPhone 12 Pro / iPad Pro 2020 及以上机型）"
+			} as ARSessionErrorResult)
+			return
+		}
+
+		// 防止重复启动时出现两个并发的 ARSession 抢摄像头
+		this.stopRanging()
+
+		const config = new ARWorldTrackingConfiguration()
+		config.frameSemantics.insert(ARFrameSemantics.sceneDepth)
+
+		const session = new ARSession()
+		// ⚠️ 需要真机验证：session.delegate 的赋值方式。
+		// Swift 原生写法是 class 实现 ARSessionDelegate 协议里的
+		//   func session(_ session: ARSession, didUpdate frame: ARFrame)
+		// 每帧回调后从 frame.sceneDepth 里取深度数据。UTS 目前对"class 实现系统 protocol
+		// 并把 self 赋值给 delegate 属性"这个写法的支持程度，请对照官方 UTS ARKit
+		// 示例插件核对；如果当前 UTS 版本还不支持这种写法，退而求其次的方案是用
+		// session.currentFrame 轮询（每隔 N 毫秒主动读一次 currentFrame，而不是被动等 delegate 回调），
+		// 牺牲一点实时性换取实现的确定性，对"AR测距"这种场景完全够用。
+		session.run(config)
+		this.session = session
+	}
+
+	stopRanging() {
+		if (this.session != null) {
+			this.session.pause()
+			this.session = null
+		}
+	}
+
+	/**
+	 * ⚠️ 需要真机验证：从 ARDepthData 的 CVPixelBuffer 里读取屏幕中心点的深度值。
+	 * 对应的 Swift 层逻辑（供你在 UTS 里对照补全）：
+	 *
+	 *   CVPixelBufferLockBaseAddress(depthMap, .readOnly)
+	 *   let width = CVPixelBufferGetWidth(depthMap)
+	 *   let height = CVPixelBufferGetHeight(depthMap)
+	 *   let baseAddress = CVPixelBufferGetBaseAddress(depthMap)!
+	 *   let bytesPerRow = CVPixelBufferGetBytesPerRow(depthMap)
+	 *   let rowPtr = baseAddress.advanced(by: (height/2) * bytesPerRow)
+	 *   let floatPtr = rowPtr.assumingMemoryBound(to: Float32.self)
+	 *   let depthMeters = floatPtr[width/2]
+	 *   CVPixelBufferUnlockBaseAddress(depthMap, .readOnly)
+	 *
+	 * confidenceMap 结构相同，只是每像素是 UInt8（0=low 1=medium 2=high），按同样方式读取。
+	 * 这一段用到的 UnsafeRawPointer.advanced(by:) / assumingMemoryBound(to:) 是否能在
+	 * UTS 里直接调用、还是需要 UTS 提供的封装 API 替代，是本插件里唯一需要你在 Xcode
+	 * 报错提示下现场核对语法的地方。
+	 */
+	private readCenterDepth(sceneDepth : any) : ARRangingResult | null {
+		// TODO: 按上面注释里的 Swift 逻辑，对照 UTS 当前支持的底层指针操作语法补全
+		return null
+	}
+}
+
+export const arLidarRanging = new ARLidarRangingImpl()

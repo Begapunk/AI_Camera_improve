@@ -18,46 +18,46 @@
       <view class="stats-row">
         <view class="stat-item">
           <text class="stat-value">{{ photoCount }}</text>
-          <text class="stat-label">照片</text>
+          <text class="stat-label">{{ $t('profile.photos') }}</text>
         </view>
         <view class="stat-divider"></view>
         <view class="stat-item">
           <text class="stat-value">{{ score }}</text>
-          <text class="stat-label">评分</text>
+          <text class="stat-label">{{ $t('profile.score') }}</text>
         </view>
         <view class="stat-divider"></view>
         <view class="stat-item">
           <text class="stat-value">{{ days }}</text>
-          <text class="stat-label">连续天数</text>
+          <text class="stat-label">{{ $t('profile.streakDays') }}</text>
         </view>
       </view>
     </view>
 
     <view class="content">
       <view class="menu-section">
-        <view class="menu-title">我的功能</view>
+        <view class="menu-title">{{ $t('profile.myFeatures') }}</view>
         <view class="menu-list">
           <view class="menu-item" @tap="goToTemplateCollection">
             <view class="menu-icon" style="background:#ffe6f0;">📁</view>
             <view class="menu-content">
-              <text class="menu-text">我的模板</text>
-              <text class="menu-desc">查看保存的模板</text>
+              <text class="menu-text">{{ $t('profile.myTemplates') }}</text>
+              <text class="menu-desc">{{ $t('profile.myTemplatesDesc') }}</text>
             </view>
             <text class="menu-arrow">›</text>
           </view>
           <view class="menu-item" @tap="goToAnalyzeHistory">
             <view class="menu-icon" style="background:#e1ffee;">📊</view>
             <view class="menu-content">
-              <text class="menu-text">分析记录</text>
-              <text class="menu-desc">查看历史分析</text>
+              <text class="menu-text">{{ $t('profile.analysisHistory') }}</text>
+              <text class="menu-desc">{{ $t('profile.analysisHistoryDesc') }}</text>
             </view>
             <text class="menu-arrow">›</text>
           </view>
           <view class="menu-item" @tap="goToEnvironmentHistory">
             <view class="menu-icon" style="background:#e0f7ff;">🌤️</view>
             <view class="menu-content">
-              <text class="menu-text">环境记录</text>
-              <text class="menu-desc">查看环境分析</text>
+              <text class="menu-text">{{ $t('profile.environmentHistory') }}</text>
+              <text class="menu-desc">{{ $t('profile.environmentHistoryDesc') }}</text>
             </view>
             <text class="menu-arrow">›</text>
           </view>
@@ -65,29 +65,29 @@
       </view>
 
       <view class="menu-section">
-        <view class="menu-title">设置与帮助</view>
+        <view class="menu-title">{{ $t('profile.settingsAndHelp') }}</view>
         <view class="menu-list">
           <view class="menu-item" @tap="goToSettings">
             <view class="menu-icon" style="background:#fff7e6;">⚙️</view>
             <view class="menu-content">
-              <text class="menu-text">设置</text>
-              <text class="menu-desc">账号、隐私设置</text>
+              <text class="menu-text">{{ $t('settings.title') }}</text>
+              <text class="menu-desc">{{ $t('profile.settingsDesc') }}</text>
             </view>
             <text class="menu-arrow">›</text>
           </view>
           <view class="menu-item" @tap="goToHelp">
             <view class="menu-icon" style="background:#e8f0fe;">❓</view>
             <view class="menu-content">
-              <text class="menu-text">帮助中心</text>
-              <text class="menu-desc">使用帮助与常见问题</text>
+              <text class="menu-text">{{ $t('profile.helpCenter') }}</text>
+              <text class="menu-desc">{{ $t('profile.helpCenterDesc') }}</text>
             </view>
             <text class="menu-arrow">›</text>
           </view>
           <view class="menu-item" @tap="goToAbout">
             <view class="menu-icon" style="background:#f5efff;">ℹ️</view>
             <view class="menu-content">
-              <text class="menu-text">关于我们</text>
-              <text class="menu-desc">版本信息与反馈</text>
+              <text class="menu-text">{{ $t('profile.about') }}</text>
+              <text class="menu-desc">{{ $t('profile.aboutDesc') }}</text>
             </view>
             <text class="menu-arrow">›</text>
           </view>
@@ -95,18 +95,18 @@
       </view>
 
       <view class="logout-section">
-        <button class="logout-btn" @tap="handleLogout">退出登录</button>
+        <button class="logout-btn" @tap="handleLogout">{{ $t('profile.logout') }}</button>
       </view>
     </view>
 
     <view class="tabbar">
       <view class="tab" @tap="goHome">
         <span class="iconify" data-icon="solar:home-2-bold-duotone"></span>
-        <text>首页</text>
+        <text>{{ $t('home.tabHome') }}</text>
       </view>
       <view class="tab active" @tap="goToProfile">
         <span class="iconify" data-icon="solar:user-bold-duotone"></span>
-        <text>我的</text>
+        <text>{{ $t('home.tabProfile') }}</text>
       </view>
     </view>
   </view>
@@ -118,7 +118,7 @@ import { getUserInfoApi } from '@/utils/request.js'
 export default {
   data() {
     return {
-      username: '用户昵称',
+      username: this.$t('profile.defaultNickname'),
       userId: '88888888',
       photoCount: 0,
       score: 0,
@@ -137,13 +137,13 @@ export default {
         return
       }
 
-      uni.showLoading({ title: '加载中...', mask: true })
+      uni.showLoading({ title: this.$t('common.loading'), mask: true })
       getUserInfoApi()
         .then((res) => {
           uni.hideLoading()
           if (res.statusCode === 200 && res.data.user) {
             const user = res.data.user
-            this.username = user.nickname || user.username || '用户昵称'
+            this.username = user.nickname || user.username || this.$t('profile.defaultNickname')
             this.userId = user.id || '88888888'
             this.avatar = user.avatar || ''
             this.photoCount = user.photoCount || 0
@@ -153,7 +153,7 @@ export default {
         })
         .catch(() => {
           uni.hideLoading()
-          uni.showToast({ title: '获取用户信息失败', icon: 'none' })
+          uni.showToast({ title: this.$t('settings.fetchUserInfoFailed'), icon: 'none' })
         })
     },
     goHome() {
@@ -181,8 +181,8 @@ export default {
     },
     handleLogout() {
       uni.showModal({
-        title: '退出登录',
-        content: '确定要退出当前账号吗？',
+        title: this.$t('profile.logout'),
+        content: this.$t('profile.logoutConfirm'),
         success: (res) => {
           if (res.confirm) {
             uni.removeStorageSync('username')

@@ -4,9 +4,9 @@
 
     <!-- 离线待补传横幅 -->
     <view v-if="offlineQueue.length" class="offline-bar">
-      <text>离线留证 {{ offlineQueue.length }} 条待补传</text>
+      <text>{{ $t('metro.offlineQueueBanner', { count: offlineQueue.length }) }}</text>
       <view class="offline-btn" @tap="syncOffline" :class="{ disabled: syncing }">
-        {{ syncing ? '补传中...' : '立即补传' }}
+        {{ syncing ? $t('metro.syncing') : $t('metro.syncNow') }}
       </view>
     </view>
 
@@ -14,60 +14,60 @@
 
       <!-- ① 选择/扫码 转辙机（可选，不再是检测的前置条件） -->
       <view class="card">
-        <view class="card-title">① 选择转辙机（可选）</view>
-        <input class="ipt ipt-full" v-model="deviceCode" placeholder="输入或扫码转辙机编号（可跳过）" />
+        <view class="card-title">{{ $t('metro.selectDeviceTitle') }}</view>
+        <input class="ipt ipt-full" v-model="deviceCode" :placeholder="$t('metro.deviceCodePlaceholder')" />
         <view class="row row-actions">
-          <view class="mini-btn" @tap="scanDevice">扫码</view>
-          <view class="mini-btn ghost" @tap="loadDevice">查询</view>
+          <view class="mini-btn" @tap="scanDevice">{{ $t('metro.scanDevice') }}</view>
+          <view class="mini-btn ghost" @tap="loadDevice">{{ $t('metro.queryBtn') }}</view>
         </view>
 
         <view v-if="deviceInfo" class="dev-info">
-          <text class="dev-line">型号：{{ deviceInfo.model }}（{{ deviceInfo.family }} 族）</text>
-          <text class="dev-line">站点：{{ deviceInfo.station || '—' }}</text>
+          <text class="dev-line">{{ $t('metro.deviceModelLine', { model: deviceInfo.model, family: deviceInfo.family }) }}</text>
+          <text class="dev-line">{{ $t('metro.deviceStationLine', { station: deviceInfo.station || '—' }) }}</text>
           <text class="dev-line" :class="deviceInfo.baseline_ready ? 'ok' : 'warn'">
-            基准图：{{ deviceInfo.baseline_ready ? '已就绪 v' + deviceInfo.baseline_version : '未就绪（将降级人工复核）' }}
+            {{ deviceInfo.baseline_ready ? $t('metro.baselineReadyLine', { version: deviceInfo.baseline_version }) : $t('metro.baselineNotReadyLine') }}
           </text>
         </view>
         <view v-else-if="deviceQueried" class="dev-info">
-          <text class="dev-line warn">该编号未登记。可在下方登记后再检测。</text>
-          <view class="link" @tap="showRegister = !showRegister">{{ showRegister ? '收起登记' : '去登记设备 ▸' }}</view>
+          <text class="dev-line warn">{{ $t('metro.deviceNotRegistered') }}</text>
+          <view class="link" @tap="showRegister = !showRegister">{{ showRegister ? $t('metro.collapseRegister') : $t('metro.goRegisterDevice') }}</view>
         </view>
         <view v-else class="dev-info">
-          <text class="dev-line warn">不填编号也能直接检测，但无法比对基准图，结果会自动按"需人工复核"处理。</text>
+          <text class="dev-line warn">{{ $t('metro.noCodeHint') }}</text>
         </view>
 
         <!-- 设备登记面板（冷启动采集基准图） -->
         <view v-if="showRegister" class="register">
           <picker mode="selector" :range="modelList" @change="onModelPick">
-            <view class="ipt picker">{{ regModel || '选择型号' }}</view>
+            <view class="ipt picker">{{ regModel || $t('metro.selectModelPlaceholder') }}</view>
           </picker>
-          <input class="ipt" v-model="regStation" placeholder="站点/区间（可选）" />
+          <input class="ipt" v-model="regStation" :placeholder="$t('metro.stationPlaceholder')" />
           <view class="row">
-            <view class="mini-btn" @tap="captureBaseline">采集基准图</view>
-            <text class="hint" v-if="regBaselinePath">已选基准图 ✓</text>
+            <view class="mini-btn" @tap="captureBaseline">{{ $t('metro.captureBaseline') }}</view>
+            <text class="hint" v-if="regBaselinePath">{{ $t('metro.baselineSelected') }}</text>
           </view>
-          <view class="primary-btn small" @tap="registerDevice">保存登记</view>
+          <view class="primary-btn small" @tap="registerDevice">{{ $t('metro.saveRegister') }}</view>
         </view>
       </view>
 
       <!-- ② 拍摄内部照片 -->
       <view class="card">
-        <view class="card-title">② 拍摄转辙机内部</view>
+        <view class="card-title">{{ $t('metro.captureInsideTitle') }}</view>
         <view class="shot-area" @tap="capturePhoto">
           <image v-if="photoPath" :src="photoPath" mode="aspectFill" class="shot-img" />
           <view v-else class="shot-placeholder">
             <text class="shot-icon">📷</text>
-            <text class="shot-tip">点击拍摄（请开启补光、正对内腔）</text>
+            <text class="shot-tip">{{ $t('metro.shotTip') }}</text>
           </view>
         </view>
         <view class="primary-btn" :class="{ disabled: !canDetect || detecting }" @tap="runDetect">
-          {{ detecting ? '检测中...' : '开始检测' }}
+          {{ detecting ? $t('metro.detecting') : $t('metro.startDetect') }}
         </view>
       </view>
 
       <!-- ③ 检测结果 -->
       <view v-if="result" class="card">
-        <view class="card-title">③ 检测结果</view>
+        <view class="card-title">{{ $t('metro.resultTitle') }}</view>
         <view class="result-banner" :class="resultClass">
           <text class="result-tag">{{ resultLabel }}</text>
           <text class="result-msg">{{ result.message }}</text>
@@ -75,12 +75,11 @@
 
         <image v-if="result.annotated_url" :src="result.annotated_url" mode="widthFix" class="annotated" />
 
-        <view class="meta-line">质量评分：{{ (result.quality_score * 100).toFixed(0) }} 分 ·
-          基准版本：{{ result.baseline_version ? 'v' + result.baseline_version : '无' }}</view>
+        <view class="meta-line">{{ $t('metro.qualityScoreLine', { score: (result.quality_score * 100).toFixed(0), version: result.baseline_version ? 'v' + result.baseline_version : $t('metro.noBaselineVersion') }) }}</view>
 
         <view v-if="result.detections && result.detections.length" class="det-list">
           <view v-for="(d, i) in result.detections" :key="i" class="det-item">
-            <text class="det-src" :class="d.source">{{ d.source === 'yolo' ? '工器具' : '差分' }}</text>
+            <text class="det-src" :class="d.source">{{ d.source === 'yolo' ? $t('metro.sourceYolo') : $t('metro.sourceDiff') }}</text>
             <text class="det-label">{{ d.label }}</text>
             <text class="det-conf">{{ (d.conf * 100).toFixed(0) }}%</text>
           </view>
@@ -88,17 +87,17 @@
 
         <!-- 人工复核闭环 -->
         <view v-if="needConfirm && !confirmed" class="confirm-box">
-          <view class="confirm-title">人工复核（合盖前必须确认）</view>
+          <view class="confirm-title">{{ $t('metro.manualReviewTitle') }}</view>
           <view class="confirm-actions">
-            <view class="confirm-btn safe" @tap="doConfirm('确认安全，无遗留物')">确认安全</view>
-            <view class="confirm-btn fix" @tap="doConfirm('已取出工具，需重拍复检')">已取出工具</view>
+            <view class="confirm-btn safe" @tap="doConfirm('确认安全，无遗留物')">{{ $t('metro.confirmSafeBtn') }}</view>
+            <view class="confirm-btn fix" @tap="doConfirm('已取出工具，需重拍复检')">{{ $t('metro.toolsRemovedBtn') }}</view>
           </view>
         </view>
-        <view v-if="confirmed" class="confirmed-tip">✓ 复核已记录</view>
+        <view v-if="confirmed" class="confirmed-tip">✓ {{ $t('metro.reviewRecorded') }}</view>
       </view>
 
       <view class="footer-tip">
-        本系统为安全辅助闸门：绿灯方可合盖；黄/红灯须人工复核。漏报零容忍。
+        {{ $t('metro.footerTip') }}
       </view>
     </scroll-view>
   </view>
@@ -147,7 +146,12 @@ export default {
       return ({ PASS: 'green', REVIEW: 'yellow', BLOCKED: 'red', RETAKE: 'gray' })[this.result.result] || 'gray'
     },
     resultLabel() {
-      return ({ PASS: '✓ 通过 可合盖', REVIEW: '⚠ 需人工复核', BLOCKED: '✕ 禁止合盖', RETAKE: '↻ 请重拍' })[this.result.result] || this.result.result
+      return ({
+        PASS: this.$t('metro.resultPass'),
+        REVIEW: this.$t('metro.resultReview'),
+        BLOCKED: this.$t('metro.resultBlocked'),
+        RETAKE: this.$t('metro.resultRetake'),
+      })[this.result.result] || this.result.result
     },
     needConfirm() {
       return this.result && (this.result.result === 'REVIEW' || this.result.result === 'BLOCKED')
@@ -169,11 +173,11 @@ export default {
     scanDevice() {
       uni.scanCode({
         success: (r) => { this.deviceCode = r.result; this.loadDevice() },
-        fail: () => uni.showToast({ title: '扫码取消', icon: 'none' })
+        fail: () => uni.showToast({ title: this.$t('metro.scanCancelled'), icon: 'none' })
       })
     },
     async loadDevice() {
-      if (!this.deviceCode) return uni.showToast({ title: '请输入编号', icon: 'none' })
+      if (!this.deviceCode) return uni.showToast({ title: this.$t('metro.pleaseInputCode'), icon: 'none' })
       this.deviceQueried = true
       try {
         const res = await metroGetDeviceApi(this.deviceCode)
@@ -185,7 +189,7 @@ export default {
         }
       } catch (e) {
         this.deviceInfo = null
-        uni.showToast({ title: '查询失败', icon: 'none' })
+        uni.showToast({ title: this.$t('metro.queryFailed'), icon: 'none' })
       }
     },
     onModelPick(e) { this.regModel = this.modelList[e.detail.value] },
@@ -196,20 +200,20 @@ export default {
       })
     },
     async registerDevice() {
-      if (!this.deviceCode || !this.regModel) return uni.showToast({ title: '编号与型号必填', icon: 'none' })
-      if (!this.regBaselinePath) return uni.showToast({ title: '请采集基准图', icon: 'none' })
-      uni.showLoading({ title: '登记中...', mask: true })
+      if (!this.deviceCode || !this.regModel) return uni.showToast({ title: this.$t('metro.codeAndModelRequired'), icon: 'none' })
+      if (!this.regBaselinePath) return uni.showToast({ title: this.$t('metro.pleaseCaptureBaseline'), icon: 'none' })
+      uni.showLoading({ title: this.$t('metro.registering'), mask: true })
       try {
         await metroRegisterDeviceApi(this.regBaselinePath, {
           device_code: this.deviceCode, model: this.regModel, station: this.regStation
         })
         uni.hideLoading()
-        uni.showToast({ title: '登记成功', icon: 'success' })
+        uni.showToast({ title: this.$t('metro.registerSuccess'), icon: 'success' })
         this.showRegister = false
         this.loadDevice()
       } catch (e) {
         uni.hideLoading()
-        uni.showToast({ title: '登记失败', icon: 'none' })
+        uni.showToast({ title: this.$t('metro.registerFailed'), icon: 'none' })
       }
     },
     capturePhoto() {
@@ -223,7 +227,7 @@ export default {
       this.detecting = true
       this.result = null
       this.confirmed = false
-      uni.showLoading({ title: '检测中...', mask: true })
+      uni.showLoading({ title: this.$t('metro.detecting'), mask: true })
       const formData = {
         device_code: this.deviceCode,
         worker_id: this.worker,
@@ -236,8 +240,8 @@ export default {
         // 网络失败 → 离线留证入队（fail-safe：不显示通过）
         this.enqueueOffline(formData)
         uni.showModal({
-          title: '网络不可用',
-          content: '已离线留证，回到有信号处可补传。请勿据此判定安全。',
+          title: this.$t('metro.networkUnavailable'),
+          content: this.$t('metro.offlineSavedHint'),
           showCancel: false
         })
       } finally {
@@ -263,16 +267,16 @@ export default {
       this.offlineQueue = remain
       uni.setStorageSync(OFFLINE_KEY, remain)
       this.syncing = false
-      uni.showToast({ title: remain.length ? '部分补传失败' : '补传完成', icon: 'none' })
+      uni.showToast({ title: remain.length ? this.$t('metro.syncPartialFailed') : this.$t('metro.syncCompleted'), icon: 'none' })
     },
     async doConfirm(action) {
       if (!this.result || !this.result.trace_id) return
       try {
         await metroConfirmApi(this.result.trace_id, { confirmed_by: this.worker, confirm_action: action })
         this.confirmed = true
-        uni.showToast({ title: '已记录', icon: 'success' })
+        uni.showToast({ title: this.$t('metro.recorded'), icon: 'success' })
       } catch (e) {
-        uni.showToast({ title: '记录失败', icon: 'none' })
+        uni.showToast({ title: this.$t('metro.recordFailed'), icon: 'none' })
       }
     }
   }

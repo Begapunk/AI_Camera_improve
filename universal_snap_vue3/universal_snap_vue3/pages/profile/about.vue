@@ -4,7 +4,7 @@
       <view class="back-btn" @click="goBack">
         <text class="back-icon">←</text>
       </view>
-      <text class="nav-title">关于我们</text>
+      <text class="nav-title">{{ $t('profileAbout.title') }}</text>
       <view class="right-placeholder"></view>
     </view>
 
@@ -13,18 +13,18 @@
         <view class="logo-icon">
           <text class="logo-camera">📷</text>
         </view>
-        <text class="app-name">万能拍</text>
-        <text class="app-version">版本 {{ version }}</text>
+        <text class="app-name">{{ $t('profileAbout.appName') }}</text>
+        <text class="app-version">{{ $t('profileAbout.versionLabel', { version }) }}</text>
       </view>
 
       <view class="section">
-        <view class="section-title">功能一览</view>
+        <view class="section-title">{{ $t('profileAbout.featuresTitle') }}</view>
         <view class="card">
           <view class="feature-item" v-for="(f, i) in features" :key="i">
             <text class="feature-icon">{{ f.icon }}</text>
             <view class="feature-text">
-              <text class="feature-title">{{ f.title }}</text>
-              <text class="feature-desc">{{ f.desc }}</text>
+              <text class="feature-title">{{ $t('profileAbout.' + f.title) }}</text>
+              <text class="feature-desc">{{ $t('profileAbout.' + f.desc) }}</text>
             </view>
           </view>
         </view>
@@ -38,12 +38,13 @@ export default {
   data() {
     return {
       version: '1.0.0',
+      // 显示文案走 profileAbout.<key> 翻译键，这里只留 key
       features: [
-        { icon: '📷', title: '智能拍摄助手', desc: '实时构图、姿势与专业模式指导' },
-        { icon: '👤', title: '自拍分析', desc: '一键获取 AI 改进建议' },
-        { icon: '🌤️', title: '环境分析', desc: '光线、背景与角度改善建议' },
-        { icon: '📋', title: '模板评分', desc: '为作品打分并收藏进我的模板' },
-        { icon: '🚇', title: '地铁模式', desc: '转辙机遗留物(FOD)检测与巡检记录' }
+        { icon: '📷', title: 'feature1Title', desc: 'feature1Desc' },
+        { icon: '👤', title: 'feature2Title', desc: 'feature2Desc' },
+        { icon: '🌤️', title: 'feature3Title', desc: 'feature3Desc' },
+        { icon: '📋', title: 'feature4Title', desc: 'feature4Desc' },
+        { icon: '🚇', title: 'feature5Title', desc: 'feature5Desc' }
       ]
     }
   },

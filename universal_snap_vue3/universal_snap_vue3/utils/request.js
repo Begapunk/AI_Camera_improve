@@ -1,6 +1,75 @@
-let BASE_URL = 'http://192.168.124.35:5001';
+// ============================================================
+// 跨端网络请求封装
+// 小程序 / App / H5 统一入口，自动适配 BASE_URL
+// ============================================================
+
+/**
+ * 环境配置说明：
+ *
+ * 【开发环境】（当前）
+ * - 小程序：本地 Python Flask 服务 http://192.168.124.35:5001
+ * - App 真机调试：需改为电脑当前局域网 IP（每次可能变化）
+ * - H5：同上或使用代理
+ *
+ * 【生产环境】（部署至 Render 后）
+ * - 需要修改 PROD_URL 为你的 Render 域名
+ * - 小程序：需在微信公众平台 → 开发管理 → 服务器域名 添加 request 合法域名
+ * - App：需在 manifest.json → app-plus → networkSecurityConfig 配置 trust-ssl
+ */
+
+// 默认开发环境地址（App 端真机调试请改为电脑局域网 IP）
+const DEV_URL = 'http://192.168.124.35:5001';
+
+// 生产环境地址（部署到 Render 后修改此处）
+const PROD_URL = 'https://your-app-name.onrender.com';
+
+// 运行时平台检测
+const isApp = typeof plus !== 'undefined';
+
+// 自动选择 BASE_URL：开发环境用局域网 IP，生产环境用正式域名
+let BASE_URL = (() => {
+  // #ifdef MP-WEIXIN
+  // 小程序：通过编译模式判断（开发版/体验版/正式版）
+  const accountInfo = uni.getAccountInfoSync ? uni.getAccountInfoSync() : {};
+  const envVersion = accountInfo.miniProgram ? accountInfo.miniProgram.envVersion : 'develop';
+  if (envVersion === 'release') {
+    return PROD_URL;
+  }
+  return DEV_URL;
+  // #endif
+
+  // #ifdef APP-PLUS
+  // App：通过 plus.runtime.arguments 或自定义配置判断
+  try {
+    // 方式1：检查是否为打包后的正式版本（无 debugger）
+    if (typeof __wxConfig !== 'undefined' && __wxConfig.debug === false) {
+      return PROD_URL;
+    }
+    // 方式2：检查是否连接调试器
+    if (!isApp || !plus.webview) {
+      return DEV_URL;
+    }
+    return DEV_URL; // 默认开发环境，发布前手动改为 PROD_URL
+  } catch (_) {
+    return DEV_URL;
+  }
+  // #endif
+
+  // #ifdef H5
+  // H5：根据 hostname 判断
+  if (typeof window !== 'undefined' && window.location) {
+    const isLocalhost = /^localhost|^127\.0\.0\.1|^192\.168\./.test(window.location.hostname);
+    return isLocalhost ? DEV_URL : PROD_URL;
+  }
+  return DEV_URL;
+  // #endif
+
+  return DEV_URL;
+})();
 
 const DEFAULT_TIMEOUT = 30000;
+const APP_RETRY_COUNT = 2;
+const APP_RETRY_DELAY = 1500;
 
 const normalizePath = (url = '') => {
   if (/^https?:\/\//i.test(url)) return url;
@@ -53,18 +122,42 @@ const responseInterceptor = (response) => {
 
 export const request = (config) => {
   const finalConfig = requestInterceptor(config);
+  const maxRetries = isApp ? APP_RETRY_COUNT : 0;
 
-  return new Promise((resolve, reject) => {
+  const doRequest = (retriesLeft) => new Promise((resolve, reject) => {
     uni.request({
       ...finalConfig,
       success: (res) => resolve(responseInterceptor(res)),
       fail: (err) => {
-        uni.showToast({ title: '网络请求失败', icon: 'none' });
-        reject(err);
+        if (retriesLeft > 0 && _isRetryableError(err)) {
+          console.warn(`[Request] 请求失败，${APP_RETRY_DELAY}ms 后重试 (剩余 ${retriesLeft} 次):`, err.errMsg);
+          setTimeout(() => {
+            doRequest(retriesLeft - 1).then(resolve).catch(reject);
+          }, APP_RETRY_DELAY);
+        } else {
+          if (retriesLeft === 0) {
+            uni.showToast({ title: '网络请求失败，请检查网络', icon: 'none' });
+          }
+          reject(err);
+        }
       }
     });
   });
+
+  return doRequest(maxRetries);
 };
+
+/**
+ * 判断是否为可重试的网络错误（超时、连接断开等）
+ */
+function _isRetryableError(err) {
+  if (!err || !err.errMsg) return false;
+  const msg = err.errMsg.toLowerCase();
+  return msg.includes('timeout') ||
+         msg.includes('fail') ||
+         msg.includes('abort') ||
+         msg.includes('network');
+}
 
 export const get = (url, data = {}, config = {}) => request({ ...config, url, data, method: 'GET' });
 export const post = (url, data = {}, config = {}) => request({ ...config, url, data, method: 'POST' });

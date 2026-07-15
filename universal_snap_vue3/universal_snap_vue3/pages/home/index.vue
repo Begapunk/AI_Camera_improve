@@ -4,53 +4,53 @@
 
     <view class="header">
       <view class="greeting">
-        <text class="today">今天</text>
-        <text class="welcome">欢迎，{{ username }}</text>
+        <text class="today">{{ $t('home.today') }}</text>
+        <text class="welcome">{{ $t('home.welcome', { name: username }) }}</text>
       </view>
       <view class="avatar">👤</view>
     </view>
 
     <scroll-view class="content" scroll-y enhanced :show-scrollbar="false">
       <view class="ai-card" @tap="goToCamera">
-        <view class="ai-badge">AI 拍摄</view>
-        <view class="ai-title">智能构图 · 姿势指导</view>
-        <view class="ai-desc">自动优化角度、光线、构图</view>
+        <view class="ai-badge">{{ $t('home.aiBadge') }}</view>
+        <view class="ai-title">{{ $t('home.aiTitle') }}</view>
+        <view class="ai-desc">{{ $t('home.aiDesc') }}</view>
       </view>
 
       <view class="grid">
         <view class="grid-item" @tap="goToCamera">
           <view class="icon-box" style="background:#fff7e6; color:#ff9500;">📷</view>
-          <text class="item-text">智能拍摄助手</text>
+          <text class="item-text">{{ $t('home.cameraAssistant') }}</text>
         </view>
-        <view class="grid-item" @tap="showFaceCamera = true">
+        <view class="grid-item" @tap="openFaceBind">
           <view class="icon-box face-icon-box" :class="faceRegistered ? 'face-bound' : ''">
             {{ faceRegistered ? '✅' : '🔐' }}
           </view>
-          <text class="item-text">{{ faceRegistered ? '人脸已绑定' : '人脸绑定' }}</text>
+          <text class="item-text">{{ faceRegistered ? $t('home.faceBound') : $t('home.faceBind') }}</text>
         </view>
         <view class="grid-item" @tap="goToAnalyze">
           <view class="icon-box" style="background:#e1ffee; color:#34c759;">👤</view>
-          <text class="item-text">自拍分析</text>
+          <text class="item-text">{{ $t('home.selfieAnalysis') }}</text>
         </view>
         <view class="grid-item" @tap="goToEnvironment">
           <view class="icon-box" style="background:#e0f7ff; color:#00bcd4;">🌤️</view>
-          <text class="item-text">环境分析</text>
+          <text class="item-text">{{ $t('home.environmentAnalysis') }}</text>
         </view>
         <view class="grid-item" @tap="goToTemplate">
           <view class="icon-box" style="background:#ffe6f0; color:#ff2d55;">📋</view>
-          <text class="item-text">模板评分</text>
+          <text class="item-text">{{ $t('home.templateScoring') }}</text>
         </view>
         <view class="grid-item" @tap="goToTemplateCollection">
           <view class="icon-box" style="background:#e8f0fe; color:#4f46e5;">📁</view>
-          <text class="item-text">模板合集</text>
+          <text class="item-text">{{ $t('home.templateCollection') }}</text>
         </view>
         <view class="grid-item" @tap="goToMetro">
           <view class="icon-box" style="background:#e8f5e9; color:#2e7d32;">🚇</view>
-          <text class="item-text">地铁模式</text>
+          <text class="item-text">{{ $t('home.metroMode') }}</text>
         </view>
         <view class="grid-item" @tap="goToPoseGuide">
           <view class="icon-box" style="background:#fff9db; color:#b8860b;">🧍</view>
-          <text class="item-text">姿态引导拍摄</text>
+          <text class="item-text">{{ $t('home.poseGuide') }}</text>
         </view>
       </view>
     </scroll-view>
@@ -58,20 +58,20 @@
     <view class="tabbar">
       <view class="tab active" @tap="goHome">
         <text class="tab-icon">⌂</text>
-        <text>首页</text>
+        <text>{{ $t('home.tabHome') }}</text>
       </view>
       <view class="tab" @tap="goToProfile">
         <text class="tab-icon">👤</text>
-        <text>我的</text>
+        <text>{{ $t('home.tabProfile') }}</text>
       </view>
     </view>
 
     <view v-if="showFaceCamera" class="face-mask">
       <view class="face-card">
         <camera device-position="front" flash="off" class="face-camera"></camera>
-        <text class="face-hint">请正对面部进行采集</text>
-        <button class="face-btn" @tap="captureAndBindFace">确认录入</button>
-        <button class="face-btn cancel" @tap="showFaceCamera = false">取消</button>
+        <text class="face-hint">{{ $t('settings.faceHint') }}</text>
+        <button class="face-btn" @tap="captureAndBindFace">{{ $t('settings.confirmBind') }}</button>
+        <button class="face-btn cancel" @tap="showFaceCamera = false">{{ $t('common.cancel') }}</button>
       </view>
     </view>
   </view>
@@ -79,6 +79,7 @@
 
 <script>
 import { updateFaceApi, getUserInfoApi } from '@/utils/request.js'
+import { readFileAsBase64 } from '@/utils/fileBase64.js'
 
 export default {
   data() {
@@ -89,7 +90,7 @@ export default {
     }
   },
   onShow() {
-    this.username = uni.getStorageSync('username') || '用户'
+    this.username = uni.getStorageSync('username') || this.$t('home.defaultUsername')
     getUserInfoApi().then((res) => {
       if (res.statusCode === 200 && res.data.user) {
         this.faceRegistered = !!res.data.user.face_registered
@@ -97,37 +98,58 @@ export default {
     }).catch(() => {})
   },
   methods: {
+    // 人脸录入入口：App 端直接调系统相机（<camera> 是小程序系组件，App-vue 支持不稳），
+    // 小程序端保持原来的页内摄像头浮层
+    openFaceBind() {
+      // #ifdef APP-PLUS
+      uni.chooseImage({
+        count: 1,
+        sourceType: ['camera'],
+        sizeType: ['compressed'],
+        success: (res) => this._bindFaceByPath(res.tempFilePaths[0]),
+        fail: () => {
+          // 用户取消拍照不算错误，静默返回
+        }
+      });
+      return;
+      // #endif
+
+      // #ifndef APP-PLUS
+      this.showFaceCamera = true;
+      // #endif
+    },
+    // 拿到照片路径后的统一绑定流程（两端共用）
+    _bindFaceByPath(filePath) {
+      uni.showLoading({ title: this.$t('settings.binding'), mask: true });
+      readFileAsBase64(filePath)
+        .then((base64Data) => updateFaceApi(base64Data))
+        .then((result) => {
+          uni.hideLoading();
+          if (result.statusCode === 200) {
+            this.faceRegistered = true;
+            uni.showToast({ title: this.$t('settings.bindSuccess'), icon: 'success' });
+            this.showFaceCamera = false;
+          } else {
+            uni.showModal({
+              title: this.$t('settings.bindFailed'),
+              content: result.data.error || this.$t('settings.pleaseRetry'),
+              showCancel: false
+            });
+          }
+        })
+        .catch(() => {
+          uni.hideLoading();
+          uni.showToast({ title: this.$t('common.networkError'), icon: 'none' });
+        });
+    },
+    // 人脸录入这段和 profile/settings.vue 的 captureAndBindFace 是同一套流程，文案复用 settings.* 命名空间
     captureAndBindFace() {
       const ctx = uni.createCameraContext();
       ctx.takePhoto({
         quality: 'high',
-        success: (res) => {
-          uni.showLoading({ title: '正在绑定...', mask: true });
-          const filePath = res.tempImagePath || res.tempFilePath;
-          const fs = uni.getFileSystemManager();
-          const base64Data = fs.readFileSync(filePath, 'base64');
-          updateFaceApi(base64Data)
-            .then((result) => {
-              uni.hideLoading();
-              if (result.statusCode === 200) {
-                this.faceRegistered = true;
-                uni.showToast({ title: '绑定成功', icon: 'success' });
-                this.showFaceCamera = false;
-              } else {
-                uni.showModal({
-                  title: '绑定失败',
-                  content: result.data.error || '请重试',
-                  showCancel: false
-                });
-              }
-            })
-            .catch(() => {
-              uni.hideLoading();
-              uni.showToast({ title: '网络错误', icon: 'none' });
-            });
-        },
+        success: (res) => this._bindFaceByPath(res.tempImagePath || res.tempFilePath),
         fail: () => {
-          uni.showToast({ title: '摄像头启动失败', icon: 'none' });
+          uni.showToast({ title: this.$t('settings.cameraStartFailed'), icon: 'none' });
         }
       });
     },

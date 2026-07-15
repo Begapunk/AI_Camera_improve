@@ -5,7 +5,7 @@
       <view class="back-btn" @click="goBack">
         <text class="back-icon">←</text>
       </view>
-      <text class="nav-title">模板合集</text>
+      <text class="nav-title">{{ $t('templateCollection.navTitle') }}</text>
       <view class="right-placeholder"></view>
     </view>
 
@@ -21,15 +21,15 @@
           />
           <view class="delete-btn" @click.stop="confirmDelete(item.id)">✕</view>
         </view>
-        <text class="score">评分：{{ formatScore(item.score) }}</text>
+        <text class="score">{{ $t('templateCollection.score') }}{{ formatScore(item.score) }}</text>
       </view>
     </view>
 
     <!-- 空状态占位 -->
     <view v-else class="empty-state">
       <text class="empty-icon">📁</text>
-      <text class="empty-text">暂无模板</text>
-      <text class="empty-hint">去模板评分页面保存喜欢的作品吧</text>
+      <text class="empty-text">{{ $t('templateCollection.noTemplates') }}</text>
+      <text class="empty-hint">{{ $t('templateCollection.emptyHint') }}</text>
     </view>
 
     <!-- 底部安全区 -->
@@ -59,11 +59,11 @@ export default {
         if (res.statusCode === 200 && res.data.templates) {
           this.templates = res.data.templates
         } else {
-          uni.showToast({ title: '加载失败', icon: 'none' })
+          uni.showToast({ title: this.$t('common.loadFailed'), icon: 'none' })
         }
       } catch (err) {
         console.error(err)
-        uni.showToast({ title: '请求出错', icon: 'none' })
+        uni.showToast({ title: this.$t('templateCollection.requestFailed'), icon: 'none' })
       }
     },
 
@@ -83,8 +83,8 @@ export default {
 
     confirmDelete(id) {
       uni.showModal({
-        title: '提示',
-        content: '确定要删除该模板吗？',
+        title: this.$t('common.tip'),
+        content: this.$t('templateCollection.confirmDeleteTemplate'),
         success: async ({ confirm }) => {
           if (confirm) await this.handleDelete(id)
         }
@@ -95,14 +95,14 @@ export default {
       try {
         const res = await deleteTemplateApi(id)
         if (res.statusCode === 200) {
-          uni.showToast({ title: '删除成功', icon: 'success' })
+          uni.showToast({ title: this.$t('common.deleteSuccess'), icon: 'success' })
           this.loadTemplates()
         } else {
-          uni.showToast({ title: '删除失败', icon: 'none' })
+          uni.showToast({ title: this.$t('common.deleteFailed'), icon: 'none' })
         }
       } catch (err) {
         console.error(err)
-        uni.showToast({ title: '删除出错', icon: 'none' })
+        uni.showToast({ title: this.$t('templateCollection.deleteError'), icon: 'none' })
       }
     }
   }

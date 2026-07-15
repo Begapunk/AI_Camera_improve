@@ -5,14 +5,14 @@
       <view class="logo-icon">
         <text class="logo-camera">📷</text>
       </view>
-      <text class="logo-text">万能拍</text>
+      <text class="logo-text">{{ $t('register.appName') }}</text>
     </view>
 
     <!-- 主卡片：磨砂温润白 -->
     <view class="form-card">
       <view class="card-header">
-        <text class="card-title">创建新账号</text>
-        <text class="card-subtitle">开启您的AI摄影之旅</text>
+        <text class="card-title">{{ $t('register.createAccount') }}</text>
+        <text class="card-subtitle">{{ $t('register.subtitle') }}</text>
       </view>
 
       <!-- 用户名 -->
@@ -21,7 +21,7 @@
           <text class="input-icon">👤</text>
           <input
             type="text"
-            placeholder="请输入用户名"
+            :placeholder="$t('register.usernamePlaceholder')"
             v-model="username"
             class="input"
             placeholder-class="input-placeholder"
@@ -35,7 +35,7 @@
           <text class="input-icon">🔒</text>
           <input
             type="password"
-            placeholder="请输入密码（至少8位，含大小写/数字/符号）"
+            :placeholder="$t('register.passwordPlaceholder')"
             v-model="password"
             class="input"
             @input="passwordErrors = []"
@@ -43,7 +43,7 @@
           />
         </view>
         <view class="password-hint" v-if="password">
-          <text class="hint-text">🔐 至少8位，包含大小写、数字和特殊字符</text>
+          <text class="hint-text">{{ $t('register.passwordHint') }}</text>
         </view>
       </view>
 
@@ -53,7 +53,7 @@
           <text class="input-icon">✓</text>
           <input
             type="password"
-            placeholder="请再次输入密码"
+            :placeholder="$t('register.confirmPasswordPlaceholder')"
             v-model="confirmPassword"
             class="input"
             placeholder-class="input-placeholder"
@@ -67,7 +67,7 @@
           <text class="input-icon">📷</text>
           <input
             type="text"
-            placeholder="输入计算结果"
+            :placeholder="$t('register.captchaPlaceholder')"
             v-model="captchaAnswer"
             class="input captcha-input"
             placeholder-class="input-placeholder"
@@ -86,16 +86,16 @@
       <view class="face-section">
         <view class="section-label">
           <text class="label-icon">😊</text>
-          <text>面部识别 (可选)</text>
+          <text>{{ $t('register.faceRecognitionOptional') }}</text>
         </view>
         <view v-if="showCamera" class="camera-container">
           <camera device-position="front" flash="off" class="mini-camera"></camera>
-          <button @click="captureFace" class="mini-btn">确认采集</button>
+          <button @click="captureFace" class="mini-btn">{{ $t('register.confirmCapture') }}</button>
         </view>
         <view v-else class="face-preview-box">
           <image v-if="facePreview" :src="facePreview" class="preview-img"></image>
-          <view v-else class="placeholder-text">未采集面部信息</view>
-          <button @click="showCamera = true" class="mini-btn pulse">点击录入</button>
+          <view v-else class="placeholder-text">{{ $t('register.noFaceCaptured') }}</view>
+          <button @click="openFaceCamera" class="mini-btn pulse">{{ $t('register.clickToCapture') }}</button>
         </view>
       </view>
 
@@ -108,12 +108,12 @@
     </view>
 
     <!-- 主按钮：柔润渐变 -->
-    <button @click="onRegister" class="btn-primary">立即注册</button>
+    <button @click="onRegister" class="btn-primary">{{ $t('register.registerNow') }}</button>
 
     <!-- 已有账号跳转 -->
     <view class="to-login">
-      <text class="login-text">已有账号？</text>
-      <navigator url="/pages/login/index" class="login-link">去登录</navigator>
+      <text class="login-text">{{ $t('register.alreadyHaveAccount') }}</text>
+      <navigator url="/pages/login/index" class="login-link">{{ $t('register.goLogin') }}</navigator>
     </view>
 
     <!-- 轻提示吐司 -->
@@ -124,7 +124,12 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { useI18n } from '@/utils/i18nCore.js'
 import { fetchCaptchaApi, registerApi } from '@/utils/request.js'
+import { requestPermission } from '@/utils/permission.js'
+import { readFileAsBase64 } from '@/utils/fileBase64.js'
+
+const { t } = useI18n({ useScope: 'global' })
 
 const username = ref('')
 const password = ref('')
@@ -148,7 +153,7 @@ const fetchCaptcha = () => {
       }
     })
     .catch(() => {
-      uni.showToast({ title: '验证码加载失败', icon: 'none' })
+      uni.showToast({ title: t('register.captchaLoadFailed'), icon: 'none' })
     })
 }
 
@@ -161,43 +166,78 @@ const showCamera = ref(false)
 const facePreview = ref('') 
 const faceBase64 = ref(null) 
 
-// 拍照采集
+// 拿到人脸照片路径后的统一采集流程（小程序 <camera> / App 系统相机共用）
+const acceptFacePhoto = (filePath) => {
+  readFileAsBase64(filePath)
+    .then((base64) => {
+      facePreview.value = filePath;
+      faceBase64.value = base64;
+      showCamera.value = false;
+      uni.showToast({ title: t('register.captureSuccess'), icon: 'success' });
+    })
+    .catch(() => {
+      uni.showToast({ title: t('register.cameraCallFailed'), icon: 'none' });
+    })
+}
+
+// 人脸采集入口
+const openFaceCamera = () => {
+  // #ifdef APP-PLUS
+  // App 端不依赖 <camera> 组件（小程序系组件，App-vue 支持不稳），直接调系统相机
+  uni.chooseImage({
+    count: 1,
+    sourceType: ['camera'],
+    sizeType: ['compressed'],
+    success: (res) => acceptFacePhoto(res.tempFilePaths[0]),
+    fail: () => {
+      // 用户取消拍照不算错误，静默返回
+    }
+  });
+  return;
+  // #endif
+
+  // #ifndef APP-PLUS
+  // 小程序端：打开摄像头前先申请权限，拒绝就留在预览态，不强行切视图
+  requestPermission('camera')
+    .then(() => {
+      showCamera.value = true
+    })
+    .catch(() => {
+      uni.showToast({ title: t('register.cameraCallFailed'), icon: 'none' })
+    })
+  // #endif
+}
+
+// 小程序端 <camera> 视图里的"确认拍照"按钮
 const captureFace = () => {
   const ctx = uni.createCameraContext();
   ctx.takePhoto({
     quality: 'high',
-    success: (res) => {
-      const filePath = res.tempImagePath || res.tempFilePath;
-      facePreview.value = filePath;
-      const fs = uni.getFileSystemManager();
-      faceBase64.value = fs.readFileSync(filePath, 'base64');
-      showCamera.value = false;
-      uni.showToast({ title: '采集成功', icon: 'success' });
-    },
+    success: (res) => acceptFacePhoto(res.tempImagePath || res.tempFilePath),
     fail: () => {
-      uni.showToast({ title: '调用相机失败', icon: 'none' });
+      uni.showToast({ title: t('register.cameraCallFailed'), icon: 'none' });
     }
   });
 }
 
 async function onRegister () {
   if (!username.value || !password.value || !confirmPassword.value) {
-    message.value = '请完整填写信息'
+    message.value = t('register.fillAllFields')
     return
   }
   if (password.value !== confirmPassword.value) {
-    message.value = '两次密码不一致'
+    message.value = t('register.passwordMismatch')
     return
   }
   if (!captchaAnswer.value) {
-    message.value = '请填写计算结果'
+    message.value = t('register.fillCaptcha')
     return
   }
-  
+
   passwordErrors.value = []
-  
+
   if (password.value.length < 8) {
-    passwordErrors.value.push('密码至少需要8个字符')
+    passwordErrors.value.push(t('register.passwordMinLength'))
   }
   const hasUpper = /[A-Z]/.test(password.value)
   const hasLower = /[a-z]/.test(password.value)
@@ -206,21 +246,21 @@ async function onRegister () {
   const complexityCount = [hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
   if (complexityCount < 3) {
     const missing = []
-    if (!hasUpper) missing.push('大写字母'); if (!hasLower) missing.push('小写字母');
-    if (!hasNumber) missing.push('数字'); if (!hasSpecial) missing.push('特殊字符');
-    passwordErrors.value.push(`需要至少3种字符类型，缺少：${missing.join('、')}`)
+    if (!hasUpper) missing.push(t('register.upperCaseLetter')); if (!hasLower) missing.push(t('register.lowerCaseLetter'));
+    if (!hasNumber) missing.push(t('register.digit')); if (!hasSpecial) missing.push(t('register.specialChar'));
+    passwordErrors.value.push(t('register.needAtLeast3Types', { missing: missing.join('、') }))
   }
   if (username.value && password.value.toLowerCase().includes(username.value.toLowerCase())) {
-    passwordErrors.value.push('密码不应包含用户名')
+    passwordErrors.value.push(t('register.passwordContainsUsername'))
   }
-  
+
   if (passwordErrors.value.length > 0) {
-    message.value = '密码建议优化'
+    message.value = t('register.passwordSuggestOptimize')
     return
   }
-  
+
   message.value = ''
-  uni.showLoading({ title: '注册中...', mask: true })
+  uni.showLoading({ title: t('register.registering'), mask: true })
 
   try {
     registerApi({
@@ -233,7 +273,7 @@ async function onRegister () {
       .then((res) => {
         uni.hideLoading()
         if (res.statusCode === 200) {
-          uni.showToast({ title: '注册成功', icon: 'success' })
+          uni.showToast({ title: t('register.registerSuccess'), icon: 'success' })
           setTimeout(() => {
             uni.redirectTo({ url: '/pages/login/index' })
           }, 1000)
@@ -241,20 +281,20 @@ async function onRegister () {
           fetchCaptcha()
           if (res.data.details && Array.isArray(res.data.details)) {
             passwordErrors.value = res.data.details
-            message.value = res.data.error || '验证失败'
+            message.value = res.data.error || t('register.verificationFailed')
           } else {
-            message.value = res.data.error || res.data.message || '注册失败'
+            message.value = res.data.error || res.data.message || t('register.registerFailed')
           }
         }
       })
       .catch(() => {
         uni.hideLoading()
-        message.value = '连接服务器失败'
+        message.value = t('register.connectServerFailed')
         fetchCaptcha()
       })
   } catch (err) {
     uni.hideLoading()
-    message.value = '请求异常，请检查网络'
+    message.value = t('register.requestExceptionCheckNetwork')
     fetchCaptcha()
   }
 }

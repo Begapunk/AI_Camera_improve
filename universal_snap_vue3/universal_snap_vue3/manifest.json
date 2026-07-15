@@ -16,8 +16,13 @@
             "autoclose" : true,
             "delay" : 0
         },
-        /* 模块配置 */
-        "modules" : {},
+        /* 模块配置：App 端按需声明才会被编译进安装包，未声明的模块对应 API 调用会直接失败 */
+        "modules" : {
+            "Camera" : {},
+            "Bluetooth" : {},
+            "Geolocation" : {},
+            "Record" : {}
+        },
         /* 应用发布信息 */
         "distribute" : {
             /* android打包配置 */
@@ -43,7 +48,14 @@
             /* ios打包配置 */
             "ios" : {
                 "privacyDescription" : {
-                    "NSCameraUsageDescription" : "智能拍摄助手需要使用您的摄像头以提供构图建议"
+                    "NSCameraUsageDescription" : "智能拍摄助手需要使用您的摄像头以提供构图建议、专业模式骨骼追踪与地铁模式检测拍摄",
+                    "NSPhotoLibraryUsageDescription" : "需要访问相册以选择模板图片、上传照片进行AI分析",
+                    "NSPhotoLibraryAddUsageDescription" : "需要写入相册权限以保存拍摄的照片",
+                    "NSMicrophoneUsageDescription" : "需要使用麦克风以录制语音指令或视频音轨",
+                    "NSLocationWhenInUseUsageDescription" : "需要在使用期间获取位置信息以提供附近场景/地铁站点相关功能",
+                    "NSMotionUsageDescription" : "需要访问运动传感器（陀螺仪/加速度计）以提供水平仪、姿态引导与AR测距功能",
+                    "NSBluetoothAlwaysUsageDescription" : "需要使用蓝牙以连接外部硬件设备进行数据交互",
+                    "NSBluetoothPeripheralUsageDescription" : "需要使用蓝牙以连接外部硬件设备进行数据交互"
                 }
             },
             /* SDK配置 */

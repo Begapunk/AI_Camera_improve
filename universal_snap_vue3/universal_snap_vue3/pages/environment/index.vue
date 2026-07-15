@@ -4,7 +4,7 @@
       <view class="back-btn" @click="goBack">
         <text class="back-icon">←</text>
       </view>
-      <text class="nav-title">环境分析报告</text>
+      <text class="nav-title">{{ $t('environment.title') }}</text>
       <view class="right-placeholder"></view>
     </view>
 
@@ -15,22 +15,22 @@
         </view>
         <view v-else class="placeholder-content">
           <text class="placeholder-icon">📷</text>
-          <text class="placeholder-text">点击上传环境图片</text>
+          <text class="placeholder-text">{{ $t('environment.placeholderText') }}</text>
         </view>
       </view>
 
-      <button @tap="chooseImage" class="btn-primary">上传环境图片</button>
+      <button @tap="chooseImage" class="btn-primary">{{ $t('environment.uploadButton') }}</button>
 
       <view v-if="suggestion" class="suggestion-box">
         <view class="suggestion-header">
           <text class="suggestion-icon">✨</text>
-          <text class="suggestion-title">AI 环境建议</text>
+          <text class="suggestion-title">{{ $t('environment.aiAdviceTitle') }}</text>
         </view>
         <text class="suggestion-text">{{ suggestion }}</text>
       </view>
 
       <button v-if="audioUrl" @tap="replayAudio" class="btn-primary replay-btn">
-        🔊 重放语音
+        🔊 {{ $t('environment.replayAudio') }}
       </button>
     </scroll-view>
   </view>
@@ -38,7 +38,10 @@
 
 <script setup>
 import { ref, onUnmounted } from 'vue'
+import { useI18n } from '@/utils/i18nCore.js'
 import { analyzeEnvApi } from '@/utils/request.js'
+
+const { t } = useI18n({ useScope: 'global' })
 
 const imageUrl = ref('')
 const suggestion = ref('')
@@ -54,7 +57,7 @@ function chooseImage () {
     count: 1,
     success: ({ tempFilePaths }) => {
       imageUrl.value = tempFilePaths[0]
-      suggestion.value = 'AI 分析中...'
+      suggestion.value = t('environment.analyzing')
       audioUrl.value = ''
       doAnalyze()
     }
@@ -62,7 +65,7 @@ function chooseImage () {
 }
 
 async function doAnalyze () {
-  uni.showLoading({ title: '分析中...', mask: true })
+  uni.showLoading({ title: t('environment.loadingAnalyzing'), mask: true })
   try {
     const res = await analyzeEnvApi(imageUrl.value)
     uni.hideLoading()
@@ -72,11 +75,11 @@ async function doAnalyze () {
       audioUrl.value = res.audioUrl || ''
       playAudio()
     } else {
-      suggestion.value = 'AI 未返回建议'
+      suggestion.value = t('environment.noAdviceReturned')
     }
   } catch (err) {
     uni.hideLoading()
-    suggestion.value = typeof err === 'string' ? err : '上传失败'
+    suggestion.value = typeof err === 'string' ? err : t('environment.uploadFailed')
   }
 }
 

@@ -4,7 +4,7 @@
       <view class="back-btn" @click="goBack">
         <text class="back-icon">←</text>
       </view>
-      <text class="nav-title">自拍建议分析</text>
+      <text class="nav-title">{{ $t('analyze.title') }}</text>
       <view class="right-placeholder"></view>
     </view>
 
@@ -17,7 +17,7 @@
               <view class="status-dot" :class="statusClass"></view>
               <text class="analysis-status">{{ analysisStatus }}</text>
             </view>
-            <view class="image-badge">AI 分析</view>
+            <view class="image-badge">{{ $t('analyze.aiAnalysisBadge') }}</view>
           </view>
         </view>
       </view>
@@ -29,8 +29,8 @@
           </view>
           <view class="camera-ring"></view>
         </view>
-        <text class="placeholder-text">点击按钮拍摄或从相册选择</text>
-        <text class="placeholder-hint">支持1080P高清分析</text>
+        <text class="placeholder-text">{{ $t('analyze.placeholderText') }}</text>
+        <text class="placeholder-hint">{{ $t('analyze.placeholderHint') }}</text>
       </view>
 
       <view class="advice-section" v-if="advice && advice !== initialAdvice">
@@ -39,13 +39,13 @@
             <view class="advice-icon-wrap">
               <text class="advice-icon">✨</text>
             </view>
-            <text class="advice-title">AI 专业建议</text>
+            <text class="advice-title">{{ $t('analyze.aiAdviceTitle') }}</text>
           </view>
           <text class="advice-content">{{ advice }}</text>
-          
+
           <view class="audio-controls" v-if="audioUrl">
             <button class="play-button" @click="playAudio">
-              <text class="play-text">🔊 语音解读建议</text>
+              <text class="play-text">🔊 {{ $t('analyze.playAdviceAudio') }}</text>
             </button>
           </view>
         </view>
@@ -57,110 +57,109 @@
             <text v-if="imgSrc">🔄</text>
             <text v-else>📷</text>
           </view>
-          <text class="button-text">{{ imgSrc ? '重新拍摄' : '开始拍摄' }}</text>
+          <text class="button-text">{{ imgSrc ? $t('analyze.retake') : $t('analyze.startCapture') }}</text>
         </button>
-        <text class="button-hint">支持相机/相册 · 1080P高清分析</text>
+        <text class="button-hint">{{ $t('analyze.buttonHint') }}</text>
       </view>
     </scroll-view>
 
     <view class="loading-modal" v-if="isLoading">
       <view class="loading-content">
         <view class="loading-icon">🔍</view>
-        <text class="loading-text">正在智能分析中...</text>
+        <text class="loading-text">{{ $t('analyze.analyzingInProgress') }}</text>
         <view class="spinner-wrap">
           <view class="spinner"></view>
           <view class="spinner-ring"></view>
         </view>
-        <text class="loading-subtext">约需2秒</text>
+        <text class="loading-subtext">{{ $t('analyze.estimatedTime') }}</text>
       </view>
     </view>
   </view>
 </template>
 
 <script>
-import { uploadImageToServer } from '@/utils/request.js'
-
 export default {
   data() {
     return {
       imgSrc: "",
-      advice: "上传照片后，AI将为您提供专业自拍建议",
+      advice: this.$t('analyze.initialAdvice'),
       audioUrl: "",
-      innerAudioContext: null,
+      // innerAudioContext 不放 data()：原生桥接对象进 Vue Proxy 后，App 端属性赋值会抛
+      // "Proxy set trap returned falsy"。实例存 this._audioCtx（非响应式）。
       isLoading: false,
-      initialAdvice: "上传照片后，AI将为您提供专业自拍建议",
-      analysisStatus: "等待分析",
+      initialAdvice: this.$t('analyze.initialAdvice'),
+      analysisStatus: this.$t('analyze.statusWaiting'),
       statusClass: "status-waiting"
     };
   },
-
+  
   methods: {
     // 返回上一页
     goBack() {
       uni.navigateBack();
     },
-
+    
     chooseImage() {
+      this.isLoading = true;
+      this.analysisStatus = this.$t('analyze.statusProcessing');
+      this.statusClass = "status-processing";
+      
       uni.chooseImage({
         count: 1,
         sourceType: ["camera", "album"],
         success: (res) => {
           const path = res.tempFilePaths[0];
           this.imgSrc = path;
-          this.advice = "AI正在分析您的自拍...";
+          this.advice = this.$t('analyze.analyzingSelfie');
           this.audioUrl = "";
-          this.analysisStatus = "分析中";
+          this.analysisStatus = this.$t('analyze.statusAnalyzing');
           this.statusClass = "status-analyzing";
-          this.isLoading = true;
-
-          this.doAnalyze(path);
+          
+          setTimeout(() => {
+            this.simulateAnalysis().then((result) => {
+              this.advice = result.advice;
+              this.audioUrl = result.audioUrl;
+              this.analysisStatus = this.$t('analyze.statusCompleted');
+              this.statusClass = "status-completed";
+              this.isLoading = false;
+              
+              if (this.audioUrl) {
+                this.playAudio();
+              }
+            });
+          }, 2200);
         },
         fail: () => {
-          uni.showToast({ title: '选择图片失败', icon: 'none' });
+          this.isLoading = false;
+          uni.showToast({ title: this.$t('analyze.chooseImageFailed'), icon: 'none' });
         }
       });
     },
-
-    async doAnalyze(path) {
-      try {
-        const data = await uploadImageToServer(path);
-        this.isLoading = false;
-        if (data.advice) {
-          this.advice = data.advice;
-          this.audioUrl = data.audioUrl || "";
-          this.analysisStatus = "分析完成";
-          this.statusClass = "status-completed";
-
-          if (this.audioUrl) {
-            this.playAudio();
-          }
-        } else {
-          this.advice = data.error || "AI 未返回建议";
-          this.analysisStatus = "分析失败";
-          this.statusClass = "status-waiting";
-        }
-      } catch (err) {
-        this.isLoading = false;
-        this.advice = this.initialAdvice;
-        this.analysisStatus = "分析失败";
-        this.statusClass = "status-waiting";
-        uni.showToast({ title: '分析请求失败，请重试', icon: 'none' });
-      }
+    
+    simulateAnalysis() {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            advice: this.$t('analyze.mockAdviceText'),
+            audioUrl: "" // 实际项目替换为真实音频URL
+          });
+        }, 1800);
+      });
     },
-
+    
     playAudio() {
       if (!this.audioUrl) return;
       
-      if (this.innerAudioContext) {
-        this.innerAudioContext.stop();
-        this.innerAudioContext.destroy();
+      if (this._audioCtx) {
+        this._audioCtx.stop();
+        this._audioCtx.destroy();
       }
       
-      this.innerAudioContext = uni.createInnerAudioContext();
-      this.innerAudioContext.obeyMuteSwitch = false; // iOS 静音拨片下仍播报
-      this.innerAudioContext.onError((err) => {
-        console.error('[audio] play error:', err, 'src=', this.innerAudioContext.src);
-        uni.showToast({ title: '语音播放失败:' + (err && err.errMsg || '未知'), icon: 'none' });
+      this._audioCtx = uni.createInnerAudioContext();
+      try { this._audioCtx.obeyMuteSwitch = false; } catch (e) {} // iOS 静音拨片下仍播报；App 端不支持时忽略
+      this._audioCtx.onError((err) => {
+        console.error('[audio] play error:', err, 'src=', this._audioCtx.src);
+        uni.showToast({ title: this.$t('analyze.audioPlayFailed') + (err && err.errMsg || this.$t('analyze.unknown')), icon: 'none' });
       });
 
       const src = this.audioUrl;
@@ -170,28 +169,28 @@ export default {
           url: src,
           success: (res) => {
             if (res.statusCode === 200 && res.tempFilePath) {
-              this.innerAudioContext.src = res.tempFilePath;
-              this.innerAudioContext.play();
+              this._audioCtx.src = res.tempFilePath;
+              this._audioCtx.play();
             } else {
-              uni.showToast({ title: '语音下载失败:' + res.statusCode, icon: 'none' });
+              uni.showToast({ title: this.$t('analyze.audioDownloadFailed') + res.statusCode, icon: 'none' });
             }
           },
           fail: (err) => {
             console.error('[audio] downloadFile fail:', err);
-            uni.showToast({ title: '语音下载失败:' + (err && err.errMsg || '未知'), icon: 'none' });
+            uni.showToast({ title: this.$t('analyze.audioDownloadFailed') + (err && err.errMsg || this.$t('analyze.unknown')), icon: 'none' });
           }
         });
       } else {
-        this.innerAudioContext.src = src;
-        this.innerAudioContext.play();
+        this._audioCtx.src = src;
+        this._audioCtx.play();
       }
     }
   },
   
   onUnload() {
-    if (this.innerAudioContext) {
-      this.innerAudioContext.stop();
-      this.innerAudioContext.destroy();
+    if (this._audioCtx) {
+      this._audioCtx.stop();
+      this._audioCtx.destroy();
     }
   }
 };

@@ -1,6 +1,9 @@
 <template>
   <view class="container">
     <view class="camera-area">
+    <!-- #ifdef MP-WEIXIN -->
+    <!-- <camera>/cover-view 是微信系原生组件，App-vue 端挂载会导致渲染管线崩溃（页面僵死、
+         事件全部失效），必须用条件编译整块剥离，App 端走下方的系统相机降级方案 -->
     <camera
       v-if="isAuth"
       :device-position="cameraPosition"
@@ -13,9 +16,9 @@
       <cover-view v-if="isPerfect" class="perfect-border"></cover-view>
 
       <cover-view class="hud-panel" v-if="smartMode || isLevelEnabled">
-        <cover-view class="hud-text">↔️ 左右倾角: {{ displayRoll }}°</cover-view>
-        <cover-view class="hud-text">↕️ 前后俯仰: {{ displayPitch }}°</cover-view>
-        <cover-view class="hud-text">📏 估算距离: {{ estimatedDistanceDisplay }}</cover-view>
+        <cover-view class="hud-text">↔️ {{ $t('camera.tiltRoll', { deg: displayRoll }) }}</cover-view>
+        <cover-view class="hud-text">↕️ {{ $t('camera.tiltPitch', { deg: displayPitch }) }}</cover-view>
+        <cover-view class="hud-text">📏 {{ $t('camera.estimatedDistance', { value: estimatedDistanceDisplay }) }}</cover-view>
       </cover-view>
 
       <block v-if="gridType === 'nine'">
@@ -64,7 +67,7 @@
           <cover-view class="gesture-icon">✌️</cover-view>
         </cover-view>
         <cover-view v-if="isGestureDetected && !isPhotoTriggered" class="gesture-progress-text" :style="{ color: gestureHighlightColor }">
-          保持中 {{ gestureProgressPercent }}%
+          {{ $t('camera.gestureHolding', { percent: gestureProgressPercent }) }}
         </cover-view>
         <cover-view
           v-if="isPhotoTriggered"
@@ -95,27 +98,40 @@
     <!-- 专业模式：一键分析触发按钮（悬浮在取景框右上角） -->
     <view v-if="proMode" class="pro-trigger-btn" @tap="triggerProAnalysis">
       <text class="pro-trigger-icon">{{ proAnalyzing ? '⌛' : '🎯' }}</text>
-      <text class="pro-trigger-text">{{ proAnalyzing ? '分析中' : '分析场景' }}</text>
+      <text class="pro-trigger-text">{{ proAnalyzing ? $t('camera.analyzingShort') : $t('camera.analyzeScene') }}</text>
     </view>
+    <!-- #endif -->
+
+    <!-- #ifdef APP-PLUS -->
+    <!-- App 端降级取景区：页面内实时取景依赖的 <camera> 组件在 App-vue 不可用，
+         这里显示最近一张照片/引导文案，快门按钮改为调起系统相机 -->
+    <view v-if="isAuth" class="app-preview-fallback">
+      <image v-if="lastAppPhoto" :src="lastAppPhoto" mode="aspectFit" class="app-last-photo" />
+      <view v-else class="app-fallback-inner">
+        <text class="app-fallback-icon">📷</text>
+        <text class="app-fallback-text">{{ $t('camera.appFallbackHint') }}</text>
+      </view>
+    </view>
+    <!-- #endif -->
 
     </view><!-- /camera-area -->
 
     <view v-if="!isAuth" class="permission-box" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:100;">
       <view class="permission-content">
         <view class="permission-icon">📸</view>
-        <text class="p-text">需要相机权限才能使用自拍功能</text>
-        <button class="p-btn" @tap="openSettings">授权相机</button>
+        <text class="p-text">{{ $t('camera.needCameraPermission') }}</text>
+        <button class="p-btn" @tap="openSettings">{{ $t('camera.authorizeCamera') }}</button>
       </view>
     </view>
 
     <view class="footer">
       <scroll-view class="mode-selector" scroll-x :show-scrollbar="false">
         <view class="mode-inner">
-          <text class="mode-item" :class="{active: smartMode === 'person'}" @tap="setSmartMode('person')">👤 拍人</text>
-          <text class="mode-item" :class="{active: smartMode === 'object'}" @tap="setSmartMode('object')">🍎 拍物</text>
-          <text class="mode-item" :class="{active: smartMode === 'scenery'}" @tap="setSmartMode('scenery')">🏔️ 拍景</text>
-          <text class="mode-item" :class="{active: smartMode === ''}" @tap="setSmartMode('')">🚫 自由</text>
-          <text class="mode-item pro-mode-item" :class="{active: proMode}" @tap="toggleProMode">🔬 专业</text>
+          <text class="mode-item" :class="{active: smartMode === 'person'}" @tap="setSmartMode('person')">👤 {{ $t('camera.modePerson') }}</text>
+          <text class="mode-item" :class="{active: smartMode === 'object'}" @tap="setSmartMode('object')">🍎 {{ $t('camera.modeObject') }}</text>
+          <text class="mode-item" :class="{active: smartMode === 'scenery'}" @tap="setSmartMode('scenery')">🏔️ {{ $t('camera.modeScenery') }}</text>
+          <text class="mode-item" :class="{active: smartMode === ''}" @tap="setSmartMode('')">🚫 {{ $t('camera.modeFree') }}</text>
+          <text class="mode-item pro-mode-item" :class="{active: proMode}" @tap="toggleProMode">🔬 {{ $t('camera.modePro') }}</text>
         </view>
       </scroll-view>
 
@@ -123,7 +139,7 @@
         <view class="tools-inner">
           <view class="btn" @tap="switchCamera">
             <text class="emoji">🔄</text>
-            <text class="desc">翻转</text>
+            <text class="desc">{{ $t('camera.flip') }}</text>
           </view>
           <view class="btn" @tap="toggleFlash">
             <text class="emoji">⚡</text>
@@ -131,9 +147,9 @@
           </view>
           <view class="btn" @tap="showTemplates = !showTemplates">
             <text class="emoji">🖼️</text>
-            <text class="desc">模板</text>
+            <text class="desc">{{ $t('camera.template') }}</text>
           </view>
-          
+
           <view class="btn" @tap="toggleGrok">
             <text class="emoji">{{ grokRunning ? '🟢' : '⚪' }}</text>
             <text class="desc">Grok</text>
@@ -141,37 +157,37 @@
 
           <view class="btn" @tap="toggleAudio">
             <text class="emoji">{{ isAudioEnabled ? '🔊' : '🔇' }}</text>
-            <text class="desc">语音</text>
+            <text class="desc">{{ $t('camera.voice') }}</text>
           </view>
-          
+
           <view class="btn" @tap="toggleAI">
             <text class="emoji">{{ aiRunning ? '🟢' : '⚪' }}</text>
-            <text class="desc">智能指导</text>
+            <text class="desc">{{ $t('camera.smartGuide') }}</text>
           </view>
 
           <view class="btn" @tap="toggleLevel">
             <text class="emoji">{{ isLevelEnabled ? '⚖️' : '⚪' }}</text>
-            <text class="desc">水平仪</text>
+            <text class="desc">{{ $t('camera.level') }}</text>
           </view>
-          
+
           <view class="btn" @tap="toggleSkeletonMode">
             <text class="emoji">{{ skeletonMode ? '🟢' : '🦴' }}</text>
-            <text class="desc">骨骼追踪</text>
+            <text class="desc">{{ $t('camera.skeletonTracking') }}</text>
           </view>
 
           <view class="btn" @tap="toggleGestureMode">
             <text class="emoji">{{ gestureMode ? '🟢' : '✌️' }}</text>
-            <text class="desc">手势拍照</text>
+            <text class="desc">{{ $t('camera.gestureCapture') }}</text>
           </view>
 
           <view class="btn" @tap="goToARMeasure">
             <text class="emoji">📡</text>
-            <text class="desc">AR测距</text>
+            <text class="desc">{{ $t('camera.arMeasure') }}</text>
           </view>
 
           <view class="btn" @tap="showIpConfig">
             <text class="emoji">⚙️</text>
-            <text class="desc">配置</text>
+            <text class="desc">{{ $t('camera.config') }}</text>
           </view>
         </view>
       </scroll-view>
@@ -185,19 +201,19 @@
 
     <view v-if="showTemplates" class="panel-mask" @tap="showTemplates = false">
       <view class="panel" @tap.stop>
-        <view class="panel-header">辅助线</view>
+        <view class="panel-header">{{ $t('camera.helperLines') }}</view>
         <view class="grid-row">
-          <view class="tag" :class="{ active: gridType === 'none' }" @tap="setGrid('none')">无</view>
-          <view class="tag" :class="{ active: gridType === 'nine' }" @tap="setGrid('nine')">九宫格</view>
-          <view class="tag" :class="{ active: gridType === 'third' }" @tap="setGrid('third')">细分网格</view>
+          <view class="tag" :class="{ active: gridType === 'none' }" @tap="setGrid('none')">{{ $t('camera.gridNone') }}</view>
+          <view class="tag" :class="{ active: gridType === 'nine' }" @tap="setGrid('nine')">{{ $t('camera.gridNine') }}</view>
+          <view class="tag" :class="{ active: gridType === 'third' }" @tap="setGrid('third')">{{ $t('camera.gridThird') }}</view>
         </view>
-        <view class="panel-header">模板</view>
+        <view class="panel-header">{{ $t('camera.template') }}</view>
         <view class="template-list">
-          <view class="t-item" @tap="setTemplate('portrait')">👤 人像</view>
-          <view class="t-item" @tap="setTemplate('food')">🍜 美食</view>
-          <view class="t-item" @tap="setTemplate('scenery')">🏔️ 风景</view>
-          <view class="t-item custom" @tap="chooseAndUploadSketch">📤 自定义线稿</view>
-          <view class="t-item clear" @tap="setTemplate('')">🚫 清除</view>
+          <view class="t-item" @tap="setTemplate('portrait')">👤 {{ $t('camera.templatePortrait') }}</view>
+          <view class="t-item" @tap="setTemplate('food')">🍜 {{ $t('camera.templateFood') }}</view>
+          <view class="t-item" @tap="setTemplate('scenery')">🏔️ {{ $t('camera.templateScenery') }}</view>
+          <view class="t-item custom" @tap="chooseAndUploadSketch">📤 {{ $t('camera.customSketch') }}</view>
+          <view class="t-item clear" @tap="setTemplate('')">🚫 {{ $t('camera.clearTemplate') }}</view>
         </view>
       </view>
     </view>
@@ -216,6 +232,7 @@ import {
   setBaseUrl,
   smartAnalyzeApi
 } from '@/utils/request.js';
+import { requestPermission } from '@/utils/permission.js';
 
 // ====== 骨架追踪：模块级非响应式变量 ======
 // ★ 严禁移入 data()！Vue Proxy 会拦截每次写入，每帧必卡 ★
@@ -446,8 +463,11 @@ export default {
       smZ: undefined,
       
       // 系统
-      audioContext: null,
+      // ★ audioContext 不放 data()！innerAudioContext 是原生桥接对象，包进 Vue Proxy 后
+      //   App 端给它的属性(如 obeyMuteSwitch)赋值会因 Reflect.set 返回 false 直接抛 TypeError。
+      //   实例存在 this._audioCtx（onLoad 里初始化的非响应式变量）。
       serverUrl: '',
+      lastAppPhoto: '',           // App 端降级取景区展示的最近一张照片路径
 
       // 专业模式
       proMode: false,
@@ -474,7 +494,7 @@ export default {
   },
   computed: {
     flashDesc() {
-      const map = { 'off': '关', 'on': '开', 'torch': '常亮' };
+      const map = { 'off': this.$t('camera.flashOff'), 'on': this.$t('camera.flashOn'), 'torch': this.$t('camera.flashTorch') };
       return map[this.flashMode];
     },
     displayRoll() {
@@ -487,14 +507,14 @@ export default {
       if (this.aiEstimatedDistance) return this.aiEstimatedDistance;
       
       const p = this.pitchAngle;
-      if (p < -2) return "仰角 (高处物体)";
-      if (p >= -2 && p <= 2) return "> 10m (平视)";
-      
-      const HAND_HEIGHT = 1.4; 
+      if (p < -2) return this.$t('camera.elevationAngle');
+      if (p >= -2 && p <= 2) return this.$t('camera.moreThan10mLevel');
+
+      const HAND_HEIGHT = 1.4;
       const theta = p * (Math.PI / 180);
       let dist = HAND_HEIGHT / Math.tan(theta);
-      
-      if (dist > 15) return "> 15m";
+
+      if (dist > 15) return this.$t('camera.moreThan15m');
       return dist.toFixed(2) + "m";
     },
     gestureProgressPercent() {
@@ -504,8 +524,9 @@ export default {
   onLoad() {
     this.serverUrl = getBaseUrl();
     this.initCamera();
-    this.initAudioContext();
+    // initAudioContext 不在这里预热：playAudio() 每次播放前都会重建实例（防微信回收），启动时建了也是白建
     // 非响应式实例变量（每帧写入但不触发 Vue re-render）
+    this._audioCtx = null;     // innerAudioContext 原生对象，严禁进 data()（见 data 里注释）
     this._proKps = {};         // name-keyed 关键点，供 _buildProGuideText 和 _drawProOverlay 读取
     this._smoothedKps = {};    // EMA 平滑缓冲（key = COCO-17 索引）
     this._proHudTs = 0;        // HUD 文字限流时间戳
@@ -535,16 +556,20 @@ export default {
       this.aiEstimatedDistance = null; 
       
       if (mode === '') {
-        uni.showToast({ title: '自由拍摄模式', icon: 'none' });
+        uni.showToast({ title: this.$t('camera.freeShootMode'), icon: 'none' });
         this.isPerfect = false;
         if (this.aiRunning) {
-          this.aiMessage = "切换自由模式，不再强制调整动作。";
+          this.aiMessage = this.$t('camera.switchedToFreeMode');
         }
       } else {
-        const modeNames = { 'person': '人像', 'object': '静物', 'scenery': '风光' };
-        uni.showToast({ title: `切换至${modeNames[mode]}智能指导模式`, icon: 'none' });
+        const modeNames = {
+          'person': this.$t('camera.modeNamePerson'),
+          'object': this.$t('camera.modeNameObject'),
+          'scenery': this.$t('camera.modeNameScenery'),
+        };
+        uni.showToast({ title: this.$t('camera.switchedToGuideMode', { mode: modeNames[mode] }), icon: 'none' });
         if (this.aiRunning) {
-          this.aiMessage = "切换模式，重新评估中...";
+          this.aiMessage = this.$t('camera.switchingModeReevaluating');
           this.isPerfect = false;
         }
       }
@@ -680,7 +705,7 @@ export default {
         sourceType: ['album'], 
         success: (res) => {
           const filePath = res.tempFiles[0].tempFilePath;
-          uni.showLoading({ title: '生成线稿中...' });
+          uni.showLoading({ title: this.$t('camera.generatingSketch') });
           
           generateSketchApi(filePath)
             .then((uploadRes) => {
@@ -692,26 +717,27 @@ export default {
                   this.activeTemplate = ''; 
                   this.templateName = '';
                   this.showTemplates = false; 
-                  uni.showToast({ title: '线稿已加载', icon: 'success' });
+                  uni.showToast({ title: this.$t('camera.sketchLoaded'), icon: 'success' });
                 }
               } else {
-                uni.showToast({ title: '生成失败', icon: 'none' });
+                uni.showToast({ title: this.$t('camera.generateFailed'), icon: 'none' });
               }
             })
             .catch(() => {
               uni.hideLoading();
-              uni.showToast({ title: '上传失败，请检查网络', icon: 'none' });
+              uni.showToast({ title: this.$t('camera.uploadFailedCheckNetwork'), icon: 'none' });
             });
         }
       });
     },
 
     toggleGrok() {
+      if (!this._mpOnlyGuard()) return;
       this.grokRunning = !this.grokRunning;
       if (this.grokRunning) {
         if (this.aiRunning) this.stopAI();
         if (this.gestureMode) this._stopGestureMode();
-        this.aiMessage = 'Grok 模式已启动...';
+        this.aiMessage = this.$t('camera.grokModeStarted');
         this.isAnalyzing = false;
         this.analyzeGrokScene();
         this.grokTimer = setInterval(this.analyzeGrokScene, 5000);
@@ -756,18 +782,19 @@ export default {
         .catch(() => {
           this.grokFailCount++;
           if (this.grokRunning) {
-            this.aiMessage = this.grokFailCount >= 3 ? "Grok 连接中断，请检查网络" : "Grok 重连中...";
+            this.aiMessage = this.grokFailCount >= 3 ? this.$t('camera.grokConnectionLost') : this.$t('camera.grokReconnecting');
           }
           this.isAnalyzing = false;
         });
     },
 
     toggleAI() {
+      if (!this._mpOnlyGuard()) return;
       this.aiRunning = !this.aiRunning;
       if (this.aiRunning) {
         if (this.grokRunning) this.stopGrok();
         if (this.gestureMode) this._stopGestureMode();
-        this.aiMessage = this.smartMode ? '智能构图指导已启动...' : '全能 AI 助手已启动...';
+        this.aiMessage = this.smartMode ? this.$t('camera.smartCompositionStarted') : this.$t('camera.allInOneAiStarted');
         this.isPerfect = false;
         this.isAnalyzing = false;
         this.isSpeaking = false;
@@ -788,7 +815,7 @@ export default {
           this.isAnalyzing = false;
           this.isSpeaking = false;
       }
-      if (this.audioContext) this.audioContext.stop();
+      if (this._audioCtx) this._audioCtx.stop();
     },
     analyzeScene() {
       if (!this.aiRunning || this.isAnalyzing || this.isSpeaking || this.isPerfect) return;
@@ -824,7 +851,7 @@ export default {
           .catch(() => {
             this.aiFailCount++;
             if (this.aiRunning) {
-              this.aiMessage = this.aiFailCount >= 3 ? "网络持续中断，请检查连接" : "网络波动，重试中...";
+              this.aiMessage = this.aiFailCount >= 3 ? this.$t('camera.networkPersistentError') : this.$t('camera.networkFluctuating');
             }
             this.isAnalyzing = false;
           });
@@ -845,13 +872,13 @@ export default {
 
               if (aiData.is_perfect) {
                 this.isPerfect = true;
-                this.aiMessage = "完美构图！自动抓拍中...";
+                this.aiMessage = this.$t('camera.perfectCompositionAutoCapture');
                 uni.vibrateLong();
                 this.takePhoto();
 
                 setTimeout(() => {
                   this.isPerfect = false;
-                  this.aiMessage = "抓拍完成！";
+                  this.aiMessage = this.$t('camera.captureCompleted');
                 }, 3000);
               } else {
                 this.aiMessage = aiData.advice;
@@ -870,38 +897,46 @@ export default {
         .catch(() => {
           this.aiFailCount++;
           if (this.aiRunning) {
-            this.aiMessage = this.aiFailCount >= 3 ? "网络持续中断，请检查连接" : "网络波动，重试中...";
+            this.aiMessage = this.aiFailCount >= 3 ? this.$t('camera.networkPersistentError') : this.$t('camera.networkFluctuating');
           }
           this.isAnalyzing = false;
         });
     },
 
     switchCamera() {
+      if (!this._mpOnlyGuard()) return; // App 端无页面内取景，前后置切换无意义
       this.cameraPosition = this.cameraPosition === 'back' ? 'front' : 'back';
       uni.vibrateShort();
     },
     initCamera() {
-      uni.authorize({
-        scope: 'scope.camera',
-        success: () => {
+      // uni.authorize/uni.openSetting 是微信小程序专属 API，App 端(APP-PLUS)根本不存在这两个函数，
+      // 之前直接调用在 App 端会导致 isAuth 永远拿不到 true、点"去设置"直接抛 TypeError 崩掉。
+      // 统一走 utils/permission.js 的跨端封装，两端各自用平台正确的方式申请/引导权限。
+      console.log('[camera] initCamera: requesting permission...');
+      requestPermission('camera')
+        .then(() => {
+          console.log('[camera] permission OK, isAuth -> true');
           this.isAuth = true;
-          uni.authorize({ scope: 'scope.writePhotosAlbum', fail: () => {} });
-        },
-        fail: () => { this.isAuth = false; }
-      });
+          requestPermission('album').catch(() => {});
+        })
+        .catch((e) => {
+          console.warn('[camera] permission rejected:', e && e.message);
+          this.isAuth = false;
+        });
     },
     initAudioContext() {
       // 每次播放前新建实例：复用单一长期实例会被微信回收，
       // 再操作时报 "operateAudio:fail audioInstance is not set"
-      if (this.audioContext) {
-        try { this.audioContext.destroy(); } catch (e) {}
+      if (this._audioCtx) {
+        try { this._audioCtx.destroy(); } catch (e) {}
       }
-      this.audioContext = uni.createInnerAudioContext();
-      this.audioContext.obeyMuteSwitch = false; // iOS 静音拨片下仍播报，与 environment 页保持一致
-      this.audioContext.onEnded(() => this.onAudioFinished());
-      this.audioContext.onError((err) => {
-        console.error('[audio] play error:', err, 'src=', this.audioContext && this.audioContext.src);
-        uni.showToast({ title: '播放失败:' + (err && err.errMsg || '未知'), icon: 'none' });
+      this._audioCtx = uni.createInnerAudioContext();
+      // iOS 静音拨片下仍播报，与 environment 页保持一致；部分 App 端实现不支持该属性，失败不致命
+      try { this._audioCtx.obeyMuteSwitch = false; } catch (e) {}
+      this._audioCtx.onEnded(() => this.onAudioFinished());
+      this._audioCtx.onError((err) => {
+        console.error('[audio] play error:', err, 'src=', this._audioCtx && this._audioCtx.src);
+        uni.showToast({ title: this.$t('camera.audioPlayFailed') + (err && err.errMsg || this.$t('camera.unknown')), icon: 'none' });
         this.onAudioFinished();
       });
     },
@@ -911,7 +946,7 @@ export default {
     },
     showIpConfig() {
       uni.showModal({
-        title: '配置',
+        title: this.$t('camera.config'),
         editable: true,
         content: this.serverUrl,
         success: (res) => {
@@ -925,10 +960,10 @@ export default {
     toggleAudio() {
       this.isAudioEnabled = !this.isAudioEnabled;
       if (!this.isAudioEnabled && this.isSpeaking) {
-        this.audioContext.stop();
+        this._audioCtx.stop();
         this.onAudioFinished();
       }
-      uni.showToast({ title: this.isAudioEnabled ? '语音开启' : '语音关闭', icon: 'none' });
+      uni.showToast({ title: this.isAudioEnabled ? this.$t('camera.voiceOn') : this.$t('camera.voiceOff'), icon: 'none' });
     },
     playAudio(url) {
       this.isSpeaking = true;
@@ -940,8 +975,8 @@ export default {
           url,
           success: (res) => {
             if (res.statusCode === 200 && res.tempFilePath) {
-              this.audioContext.src = res.tempFilePath;
-              this.audioContext.play();
+              this._audioCtx.src = res.tempFilePath;
+              this._audioCtx.play();
             } else {
               console.error('[audio] downloadFile bad status:', res.statusCode);
               this.onAudioFinished();
@@ -949,17 +984,40 @@ export default {
           },
           fail: (err) => {
             console.error('[audio] downloadFile fail:', err);
-            uni.showToast({ title: '语音下载失败:' + (err && err.errMsg || '未知'), icon: 'none' });
+            uni.showToast({ title: this.$t('camera.audioDownloadFailed') + (err && err.errMsg || this.$t('camera.unknown')), icon: 'none' });
             this.onAudioFinished();
           }
         });
       } else {
-        this.audioContext.src = url;
-        this.audioContext.play();
+        this._audioCtx.src = url;
+        this._audioCtx.play();
       }
     },
     takePhoto() {
       if (!this.isAuth) return;
+
+      // #ifdef APP-PLUS
+      // App 端没有页面内取景（<camera> 不可用），快门直接调系统相机
+      uni.vibrateShort();
+      uni.chooseImage({
+        count: 1,
+        sourceType: ['camera'],
+        sizeType: ['original'],
+        success: (res) => {
+          const path = res.tempFilePaths && res.tempFilePaths[0];
+          if (path) {
+            this.lastAppPhoto = path;
+            this.savePhotoSafe(path);
+          }
+        },
+        fail: () => {
+          // 用户取消拍照不算错误，静默返回
+        }
+      });
+      return;
+      // #endif
+
+      // #ifndef APP-PLUS
       const ctx = uni.createCameraContext();
       uni.vibrateShort();
       ctx.takePhoto({
@@ -969,15 +1027,28 @@ export default {
           if (path) this.savePhotoSafe(path);
         }
       });
+      // #endif
+    },
+    // 帧流类功能（实时AI/骨骼/手势/专业模式等）依赖小程序的 onCameraFrame，App 端一律拦下并提示
+    _mpOnlyGuard() {
+      // #ifdef APP-PLUS
+      uni.showToast({ title: this.$t('camera.mpOnlyFeature'), icon: 'none' });
+      return false;
+      // #endif
+
+      // #ifndef APP-PLUS
+      return true;
+      // #endif
     },
     savePhotoSafe(path) {
       uni.saveImageToPhotosAlbum({
         filePath: path,
-        success: () => uni.showToast({ title: '已存入相册' }),
-        fail: () => uni.showToast({ title: '保存失败', icon: 'none' })
+        success: () => uni.showToast({ title: this.$t('camera.savedToAlbum') }),
+        fail: () => uni.showToast({ title: this.$t('common.saveFailed'), icon: 'none' })
       });
     },
     toggleFlash() {
+      if (!this._mpOnlyGuard()) return; // 闪光灯参数只对页面内取景生效，App 端由系统相机自己控制
       const modes = ['off', 'on', 'torch'];
       this.flashMode = modes[(modes.indexOf(this.flashMode) + 1) % 3];
     },
@@ -991,25 +1062,30 @@ export default {
     setGrid(t) { this.gridType = t; },
     setTemplate(t) {
       this.activeTemplate = t;
-      this.templateName = t === 'portrait' ? '人像' : t === 'food' ? '美食' : t === 'scenery' ? '风景' : '';
+      this.templateName = t === 'portrait' ? this.$t('camera.templatePortrait') : t === 'food' ? this.$t('camera.templateFood') : t === 'scenery' ? this.$t('camera.templateScenery') : '';
       this.customSketchUrl = '';
       this.showTemplates = false;
     },
-    openSettings() { uni.openSetting(); },
-    onCameraError() { uni.showToast({ title: '相机异常', icon: 'none' }); },
+    openSettings() {
+      // 点击有感：先给个 toast 确认事件真的到了（排查"点了没反应"时也能区分是事件层死了还是权限层死了）
+      uni.showToast({ title: this.$t('camera.authorizeCamera') + '...', icon: 'none', duration: 800 });
+      this.initCamera();
+    },
+    onCameraError() { uni.showToast({ title: this.$t('camera.cameraError'), icon: 'none' }); },
 
     // ================================================================
     // 专业模式：三段流水线（PaliGemma→Qwen→VKSession）
     // ================================================================
 
     toggleProMode() {
+      if (!this._mpOnlyGuard()) return;
       this.proMode = !this.proMode;
       if (this.proMode) {
         // 专业模式与其他 AI 模式互斥
         if (this.aiRunning) this.stopAI();
         if (this.grokRunning) this.stopGrok();
         if (this.gestureMode) this._stopGestureMode();
-        this.aiMessage = '🔬 专业模式已开启 · 点击「分析场景」获取拍摄方案';
+        this.aiMessage = '🔬 ' + this.$t('camera.proModeStarted');
         // 初始化 Canvas（需等组件渲染完成）
         this.$nextTick(() => this._initProCanvas());
       } else {
@@ -1056,21 +1132,21 @@ export default {
           const path = res.tempFilePath || res.tempImagePath;
           if (!path) return;
           this.proAnalyzing = true;
-          this.aiMessage = '⌛ PaliGemma 检测中...';
+          this.aiMessage = '⌛ ' + this.$t('camera.paligemmaDetecting');
 
           proAnalyzeApi(path, {
             tilt_angle: this.tiltAngle.toFixed(2),
             pitch_angle: this.pitchAngle.toFixed(2),
-            estimated_distance: this.aiEstimatedDistance || '未知',
+            estimated_distance: this.aiEstimatedDistance || this.$t('camera.unknown'),
           }).then((res) => {
             this.proAnalyzing = false;
             if (res.statusCode !== 200 || !res.data?.data) {
-              this.aiMessage = `❌ 分析失败: ${res.data?.error || '请重试'}`;
+              this.aiMessage = `❌ ${this.$t('camera.analysisFailed')}: ${res.data?.error || this.$t('settings.pleaseRetry')}`;
               return;
             }
             this.proPlan = res.data.data.plan;
-            const pg = res.data.data.paligemma_active ? '✅ PaliGemma+Qwen' : '✅ Qwen 视觉';
-            this.aiMessage = `${pg} 方案已获取 · 姿态追踪启动中...`;
+            const pg = res.data.data.paligemma_active ? '✅ PaliGemma+Qwen' : '✅ ' + this.$t('camera.qwenVision');
+            this.aiMessage = `${pg} ${this.$t('camera.planReadyTrackingStarting')}`;
             // 若 canvas 尚未初始化（第一次触发），给 nextTick 时间挂载节点
             this.$nextTick(() => {
               if (!this.proCanvasCtx) this._initProCanvas();
@@ -1078,10 +1154,10 @@ export default {
             });
           }).catch(() => {
             this.proAnalyzing = false;
-            this.aiMessage = '❌ 网络异常，请重试';
+            this.aiMessage = '❌ ' + this.$t('camera.networkErrorRetry');
           });
         },
-        fail: () => uni.showToast({ title: '抓帧失败', icon: 'none' }),
+        fail: () => uni.showToast({ title: this.$t('camera.captureFrameFailed'), icon: 'none' }),
       });
     },
 
@@ -1133,7 +1209,7 @@ export default {
               if (!forSkeleton && this.proPlan) {
                 this.aiMessage = this._buildProGuideText();
               } else if (forSkeleton) {
-                this.aiMessage = `🦴 检测到 ${Object.keys(kpMap).length} 个关键点`;
+                this.aiMessage = '🦴 ' + this.$t('camera.keypointsDetected', { count: Object.keys(kpMap).length });
               }
             }
           } else {
@@ -1148,7 +1224,7 @@ export default {
       });
 
       _frameListener.start();
-      uni.showToast({ title: '骨骼追踪已启动', icon: 'none' });
+      uni.showToast({ title: this.$t('camera.skeletonTrackingStarted'), icon: 'none' });
     },
 
     // ── 推理：onCameraFrame 原始帧 → JPEG → Flask /detect-pose → COCO-17 ─
@@ -1179,31 +1255,15 @@ export default {
     },
 
     // ── ArrayBuffer(RGBA) → JPEG 临时文件路径 ─────────────────────
-    // 使用 wx.createOffscreenCanvas (基础库 2.7.0+) + wx.canvasToTempFilePath
+    // 使用 ImageManager.frameToJpeg（跨端兼容，替代 wx.createOffscreenCanvas + wx.canvasToTempFilePath）
     async _frameToJpeg(frame) {
-      return new Promise((resolve) => {
-        try {
-          const canvas = wx.createOffscreenCanvas({
-            type: '2d',
-            width:  frame.width,
-            height: frame.height
-          });
-          const ctx = canvas.getContext('2d');
-          const imgData = ctx.createImageData(frame.width, frame.height);
-          imgData.data.set(new Uint8ClampedArray(frame.data));
-          ctx.putImageData(imgData, 0, 0);
-          wx.canvasToTempFilePath({
-            canvas,
-            fileType: 'jpg',
-            quality: 0.6,       // 骨架检测不需要高清，60% 够用且体积小
-            success: (r) => resolve(r.tempFilePath),
-            fail:    ()  => resolve(null)
-          });
-        } catch (e) {
-          console.error('[frameToJpeg]', e);
-          resolve(null);
-        }
-      });
+      try {
+        const { frameToJpeg } = require('@/utils/imageManager.js');
+        return await frameToJpeg(frame, { quality: 0.6 });
+      } catch (e) {
+        console.error('[frameToJpeg]', e);
+        return null;
+      }
     },
 
     // ── EMA 平滑 + 像素坐标归一化（pixel → 0~1）─────────────────
@@ -1306,18 +1366,19 @@ export default {
       // 旋转：Qwen 建议值 + 实时传感器双重校验
       const rot = plan.rotation_hint;
       if (rot && rot.degrees > 0.3) {
-        const dir = rot.direction === 'left' ? '左' : '右';
+        const dir = rot.direction === 'left' ? this.$t('camera.directionLeft') : this.$t('camera.directionRight');
         const liveErr = Math.abs(this.tiltAngle).toFixed(1);
-        parts.push(`📐 向${dir}转 ${rot.degrees.toFixed(1)}°（当前偏 ${liveErr}°）`);
+        parts.push('📐 ' + this.$t('camera.rotateHintWithLive', { dir, deg: rot.degrees.toFixed(1), liveErr }));
       } else if (Math.abs(this.tiltAngle) > 1.0) {
-        const dir = this.tiltAngle > 0 ? '左' : '右';
-        parts.push(`📐 向${dir}转 ${Math.abs(this.tiltAngle).toFixed(1)}°`);
+        const dir = this.tiltAngle > 0 ? this.$t('camera.directionLeft') : this.$t('camera.directionRight');
+        parts.push('📐 ' + this.$t('camera.rotateHint', { dir, deg: Math.abs(this.tiltAngle).toFixed(1) }));
       }
 
       // 距离
       const dist = plan.distance_hint;
       if (dist && dist.cm > 5) {
-        parts.push(`📏 ${dist.action === 'move_back' ? '后退' : '前进'} ${dist.cm}cm`);
+        const action = dist.action === 'move_back' ? this.$t('camera.moveBack') : this.$t('camera.moveForward');
+        parts.push('📏 ' + this.$t('camera.distanceHint', { action, cm: dist.cm }));
       }
 
       // 头部实时偏差（从非响应式 _proKps 读取）
@@ -1330,16 +1391,17 @@ export default {
           (noseActual.x - nosePlan[0]) * W,
           (noseActual.y - nosePlan[1]) * H
         ));
-        parts.push(`🎯 头部偏 ${devPx}px`);
+        parts.push('🎯 ' + this.$t('camera.headOffset', { px: devPx }));
       }
 
       // 构图评分
       if (plan.framing_score !== undefined) {
         const e = plan.framing_score >= 80 ? '✨' : plan.framing_score >= 60 ? '👍' : '⚠️';
-        parts.push(`${e} 构图 ${plan.framing_score}分`);
+        parts.push(`${e} ` + this.$t('camera.framingScore', { score: plan.framing_score }));
       }
 
-      return parts.length > 0 ? parts.join(' · ') : (plan.voice_guide || '保持当前姿势');
+      // plan.voice_guide 是后端 Qwen 模型动态生成的建议文本，属于业务返回内容，不做前端 i18n
+      return parts.length > 0 ? parts.join(' · ') : (plan.voice_guide || this.$t('camera.keepCurrentPose'));
     },
 
     // ── 独立骨骼追踪模式 ────────────────────────────────────────────
@@ -1355,13 +1417,14 @@ export default {
     },
 
     toggleSkeletonMode() {
+      if (!this._mpOnlyGuard()) return;
       this.skeletonMode = !this.skeletonMode;
       if (this.skeletonMode) {
         if (this.aiRunning) this.stopAI();
         if (this.grokRunning) this.stopGrok();
         if (this.proMode) this._stopProMode();
         if (this.gestureMode) this._stopGestureMode();
-        this.aiMessage = '🦴 骨骼追踪启动中...';
+        this.aiMessage = '🦴 ' + this.$t('camera.skeletonTrackingStarting');
         this.$nextTick(() => {
           this._initProCanvas();
           // canvas 初始化是异步的，稍等再启动 VKSession
@@ -1386,6 +1449,7 @@ export default {
     // 见后端 _is_scissor_hand）+ 身体 17 点骨骼（YOLOv8n-pose），前端同屏渲染。
     // ================================================================
     toggleGestureMode() {
+      if (!this._mpOnlyGuard()) return;
       this.gestureMode = !this.gestureMode;
       if (this.gestureMode) {
         // 与其余取景/追踪类模式互斥：共享同一颗摄像头 onCameraFrame 通道，
@@ -1394,7 +1458,7 @@ export default {
         if (this.grokRunning) this.stopGrok();
         if (this.proMode) this._stopProMode();
         if (this.skeletonMode) this._stopSkeletonMode();
-        this.aiMessage = '✌️ 手势拍照已开启 · 比出剪刀手保持约1.5秒自动拍照';
+        this.aiMessage = '✌️ ' + this.$t('camera.gestureCaptureStarted');
         this.$nextTick(() => {
           this._initProCanvas();
           // canvas 初始化是异步的，稍等再启动帧监听
@@ -1499,7 +1563,7 @@ export default {
     // ── 动作确认后统一抛出 takePhoto()，与手动快门走同一条拍照路径 ──
     _triggerGesturePhoto() {
       this.isPhotoTriggered = true;
-      this.aiMessage = '✌️ 手势确认！拍摄中...';
+      this.aiMessage = '✌️ ' + this.$t('camera.gestureConfirmedCapturing');
       uni.vibrateLong();
       this.takePhoto();
 
@@ -1507,7 +1571,7 @@ export default {
         this.isPhotoTriggered = false;
         this.gestureProgress = 0;
         if (this.gestureMode) {
-          this.aiMessage = '✌️ 手势拍照已开启 · 比出剪刀手保持约1.5秒自动拍照';
+          this.aiMessage = '✌️ ' + this.$t('camera.gestureCaptureStarted');
         }
       }, 1500);
     },
@@ -2176,5 +2240,40 @@ export default {
 .pro-mode-item.active {
   background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
   box-shadow: 0 8rpx 16rpx rgba(99, 102, 241, 0.4) !important;
+}
+
+/* App 端降级取景区（页面内实时取景在 App-vue 不可用时的替代显示） */
+.app-preview-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1a1a1a;
+}
+
+.app-last-photo {
+  width: 100%;
+  height: 100%;
+}
+
+.app-fallback-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+  padding: 0 64rpx;
+}
+
+.app-fallback-icon {
+  font-size: 96rpx;
+  opacity: 0.85;
+}
+
+.app-fallback-text {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 28rpx;
+  line-height: 1.6;
+  text-align: center;
 }
 </style>

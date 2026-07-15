@@ -1,0 +1,623 @@
+﻿<template>
+  <div class="container">
+    <div class="camera-area">
+      <!-- #ifdef APP-PLUS -->
+      <!-- App 端使用 live-pusher 实现实时取景 -->
+      <live-pusher
+        id="livePusher"
+        ref="livePusher"
+        :url="pusherUrl"
+        :mode="pusherMode"
+        :auto-focus="true"
+        :beauty="0"
+        :whiteness="0"
+        aspect="fill"
+        object-fit="fillCrop"
+        min-bitrate="200"
+        max-bitrate="1000"
+        @statechange="onPusherStateChange"
+        @error="onPusherError"
+        class="live-pusher-view"
+      ></live-pusher>
+      
+      <!-- 叠加层：网格线 -->
+      <div v-if="gridType === 'nine'" class="overlay-grid nine-grid">
+        <div class="grid-line v1"></div>
+        <div class="grid-line v2"></div>
+        <div class="grid-line h1"></div>
+        <div class="grid-line h2"></div>
+      </div>
+
+      <!-- AI 提示气泡 -->
+      <div v-if="aiMessage" class="ai-bubble-container">
+        <div class="ai-bubble" :class="{'perfect-bubble': isPerfect}">
+          <text class="ai-text">{{ aiMessage }}</text>
+        </div>
+      </div>
+
+      <!-- 专业模式触发按钮 -->
+      <div v-if="proMode" class="pro-trigger-btn" @click="triggerProAnalysis">
+        <text class="pro-trigger-icon">{{ proAnalyzing ? '⌛' : '🎯' }}</text>
+        <text class="pro-trigger-text">分析</text>
+      </div>
+      <!-- #endif -->
+
+    </div>
+
+    <!-- 权限提示 -->
+    <div v-if="!isAuth" class="permission-box">
+      <div class="permission-content">
+        <text class="permission-icon">📸</text>
+        <text class="permission-text">需要相机权限</text>
+        <div class="permission-btn" @click="openSettings">
+          <text class="btn-text">授权相机</text>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部控制栏 -->
+    <div class="footer" :style="{ paddingBottom: safeAreaBottom + 'px' }">
+      <!-- 模式选择器 -->
+      <scroll-view class="mode-selector" scroll-x="false">
+        <div class="mode-inner">
+          <text class="mode-item" :class="{active: smartMode === 'person'}" @click="setSmartMode('person')">👤 人像</text>
+          <text class="mode-item" :class="{active: smartMode === 'object'}" @click="setSmartMode('object')">🍜 静物</text>
+          <text class="mode-item" :class="{active: smartMode === ''}" @click="setSmartMode('')">🚫 自由</text>
+          <text class="mode-item pro-mode-item" :class="{active: proMode}" @click="toggleProMode">🔬 专业</text>
+        </div>
+      </scroll-view>
+
+      <!-- 工具栏 -->
+      <scroll-view class="tools-scroll" scroll-x="true">
+        <div class="tools-inner">
+          <div class="btn" @click="switchCamera">
+            <text class="emoji">🔄</text>
+            <text class="desc">翻转</text>
+          </div>
+          <div class="btn" @click="takePhoto">
+            <text class="emoji">📸</text>
+            <text class="desc">拍照</text>
+          </div>
+          <div class="btn" @click="toggleAI">
+            <text class="emoji">{{ aiRunning ? '🟢' : '⚪' }}</text>
+            <text class="desc">智能引导</text>
+          </div>
+        </div>
+      </scroll-view>
+
+      <!-- 快门按钮 -->
+      <div class="shutter-zone">
+        <div class="shutter-outer" @click="takePhoto">
+          <div class="shutter-inner"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import { getCurrentInstance } from 'vue';
+import { cameraMixin } from '@/utils/cameraCommon.js';
+import LivePusherManager from '@/utils/livePusherManager.js';
+import { processForAI } from '@/utils/imageManager.js';
+import { proAnalyzeApi } from '@/utils/request.js';
+
+export default {
+  mixins: [cameraMixin],
+
+  data() {
+    return {
+      pusherUrl: '',
+      pusherMode: 'FHD',
+      livePusherManager: null,
+
+      safeAreaBottom: 0,
+
+      _hasInitialized: false,
+      _lastPermissionStatus: false,
+      _isInitializing: false,
+      _initPromise: null
+    };
+  },
+
+  async onLoad() {
+    this.initCameraCommon();
+
+    this._calcSafeArea();
+
+    await this.requestCameraPermission();
+  },
+
+  onReady() {
+    console.log('[App Camera] onReady 触发，页面渲染完成');
+
+    if (this.isAuth) {
+      this._initLivePusherWithRetry();
+    }
+  },
+
+  onShow() {
+    console.log('[App Camera] onShow 触发，检查权限变更');
+
+    setTimeout(() => {
+      this._checkPermissionChange();
+    }, 100);
+  },
+
+  methods: {
+    // ============================================================
+    // 权限管理（App 端专用）
+    // ============================================================
+    async _safeCheckAndInitCamera() {
+      if (this._isInitializing && this._initPromise) {
+        console.log('[App Camera] 正在初始化中，等待完成...');
+        return this._initPromise;
+      }
+
+      this._isInitializing = true;
+      this._initPromise = this._doCheckAndInitCamera().finally(() => {
+        this._isInitializing = false;
+        this._initPromise = null;
+      });
+
+      return this._initPromise;
+    },
+
+    async _doCheckAndInitCamera() {
+      try {
+        const hasPermission = this.isAuth;
+        console.log('[App Camera] 权限检测结果:', hasPermission);
+
+        if (hasPermission) {
+          if (!this._hasInitialized) {
+            const success = await this._initLivePusherWithRetry();
+            if (success) {
+              this._hasInitialized = true;
+              this._lastPermissionStatus = true;
+            }
+          } else {
+            this._lastPermissionStatus = true;
+          }
+        } else {
+          this._lastPermissionStatus = false;
+          console.log('[App Camera] 权限未授权，显示授权提示');
+        }
+
+        return hasPermission;
+      } catch (e) {
+        console.error('[App Camera] 权限检测异常:', e);
+        this._lastPermissionStatus = false;
+        return false;
+      }
+    },
+
+    async _checkPermissionChange() {
+      try {
+        const currentStatus = await this._getCurrentPermissionStatus();
+
+        if (currentStatus !== this._lastPermissionStatus) {
+          console.log('[App Camera] 检测到权限状态变更:', this._lastPermissionStatus, '→', currentStatus);
+
+          if (currentStatus && !this._hasInitialized) {
+            const success = await this._initLivePusherWithRetry();
+            if (success) {
+              this._hasInitialized = true;
+              uni.showToast({ title: '✅ 权限已开启', icon: 'none' });
+            }
+          } else if (!currentStatus && this._hasInitialized) {
+            this.destroyCamera();
+            this._hasInitialized = false;
+            uni.showToast({ title: '⚠️ 权限已关闭', icon: 'none' });
+          }
+
+          this._lastPermissionStatus = currentStatus;
+          this.isAuth = currentStatus;
+        }
+      } catch (e) {
+        console.error('[App Camera] 检查权限变更失败:', e);
+      }
+    },
+
+    async _getCurrentPermissionStatus() {
+      try {
+        if (typeof uni.getAppAuthorizeSetting === 'function') {
+          const setting = uni.getAppAuthorizeSetting();
+          const status = setting?.cameraAuthorized;
+          console.log('[App Camera] 当前权限状态:', status);
+          return status === 'authorized';
+        } else {
+          console.warn('[App Camera] getAppAuthorizeSetting 不可用，尝试直接初始化');
+          return true;
+        }
+      } catch (e) {
+        console.warn('[App Camera] 获取权限状态失败，假设有权限:', e.message);
+        return true;
+      }
+    },
+
+    // ============================================================
+    // LivePusher 初始化与销毁（App 端专用）
+    // ============================================================
+    destroyCamera() {
+      if (this.livePusherManager) {
+        try {
+          this.livePusherManager.destroy();
+          console.log('[App Camera] 相机实例已销毁');
+        } catch (e) {
+          console.warn('[App Camera] 销毁相机失败:', e);
+        }
+        this.livePusherManager = null;
+      }
+    },
+
+    _calcSafeArea() {
+      try {
+        const info = uni.getSystemInfoSync();
+        if (info && info.safeAreaInsets) {
+          this.safeAreaBottom = info.safeAreaInsets.bottom || 0;
+        } else if (info && info.safeArea) {
+          this.safeAreaBottom = info.safeArea.bottom || 0;
+        }
+        console.log('[App Camera] safeAreaBottom:', this.safeAreaBottom);
+      } catch (e) {
+        this.safeAreaBottom = 0;
+      }
+    },
+
+    async _initLivePusherWithRetry(maxRetries = 3, delay = 500) {
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          console.log(`[App Camera] 尝试初始化 LivePusher (第${i + 1}次)...`);
+
+          await this._doInitLivePusher();
+
+          console.log('[App Camera] LivePusher 初始化成功');
+          this._hasInitialized = true;
+          return true;
+
+        } catch (e) {
+          console.error(`[App Camera] 第${i + 1}次初始化失败:`, e.message || e);
+
+          if (i < maxRetries - 1) {
+            console.log(`[App Camera] 等待 ${delay}ms 后重试...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            delay *= 1.5;
+          }
+        }
+      }
+
+      console.error('[App Camera] LivePusher 初始化失败，已达到最大重试次数');
+      this.livePusherManager = null;
+      uni.showToast({ title: '相机初始化失败，请重启应用', icon: 'none', duration: 3000 });
+      return false;
+    },
+
+    async _doInitLivePusher() {
+      this.livePusherManager = new LivePusherManager();
+
+      const instance = getCurrentInstance();
+      const componentThis = instance?.proxy || instance || this;
+      console.log('[App Camera] 组件上下文已获取:', typeof componentThis, 'has $page:', !!componentThis?.$page);
+
+      await this.livePusherManager.init('livePusher', {
+        mode: 'FHD',
+        autoFocus: true
+      }, componentThis);
+    },
+
+    async initLivePusher() {
+      return this._initLivePusherWithRetry();
+    },
+
+    onPusherStateChange(e) {
+      console.log('[App Camera] Pusher 状态变化:', e.detail);
+    },
+
+    onPusherError(e) {
+      console.error('[App Camera] Pusher 错误:', e.detail);
+    },
+
+    // ============================================================
+    // 核心交互方法（覆盖 mixin 实现，添加 App 端特定逻辑）
+    // ============================================================
+
+    /**
+     * 切换前后置摄像头
+     * App 端：调用 livePusherManager.switchCamera()
+     */
+    async switchCamera() {
+      try {
+        if (this.livePusherManager) {
+          await this.livePusherManager.switchCamera();
+          this.cameraPosition = this.cameraPosition === 'back' ? 'front' : 'back';
+          console.log('[App Camera] 摄像头切换为:', this.cameraPosition);
+        } else {
+          console.warn('[App Camera] LivePusher 未就绪，无法切换');
+          uni.showToast({ title: '相机未就绪', icon: 'none' });
+        }
+      } catch (e) {
+        console.error('[App Camera] 切换摄像头失败:', e);
+        uni.showToast({ title: '切换失败', icon: 'none' });
+      }
+    },
+
+    /**
+     * 拍照功能
+     * App 端：调用 livePusherManager.takeSnapshot()
+     * 拍照后自动保存到相册，并可选地上传给 AI 分析
+     */
+    async takePhoto() {
+      if (!this.isAuth || !this.livePusherManager) {
+        uni.showToast({ title: '相机未就绪', icon: 'none' });
+        return;
+      }
+
+      try {
+        uni.vibrateShort();
+
+        const imagePath = await this.livePusherManager.takeSnapshot();
+
+        if (imagePath) {
+          this.lastAppPhoto = imagePath;
+
+          console.log('[App Camera] 拍照成功:', imagePath);
+
+          // 保存到相册
+          uni.saveImageToPhotosAlbum({
+            filePath: imagePath,
+            success: () => {
+              console.log('[App Camera] 已保存到相册');
+              uni.showToast({ title: '📸 已保存', icon: 'none', duration: 1500 });
+            },
+            fail: (err) => {
+              console.warn('[App Camera] 保存到相册失败:', err);
+              // 可能是权限问题，但不影响拍照本身
+            }
+          });
+
+          // 如果 AI 正在运行，自动上传分析
+          if (this.aiRunning) {
+            this.uploadForAI(imagePath);
+          }
+        } else {
+          uni.showToast({ title: '拍照失败', icon: 'none' });
+        }
+      } catch (e) {
+        console.error('[App Camera] 拍照失败:', e);
+        uni.showToast({ title: '拍照失败', icon: 'none' });
+      }
+    },
+
+    /**
+     * 场景分析（供 AI 定时器调用）
+     * 覆盖 mixin 的空壳实现，添加 App 端特定的拍照逻辑
+     */
+    async analyzeScene() {
+      if (!this.aiRunning || !this.livePusherManager) {
+        console.log('[App Camera] analyzeScene 跳过: aiRunning=', this.aiRunning, ', pusher=', !!this.livePusherManager);
+        return;
+      }
+
+      this.isAnalyzing = true;
+
+      try {
+        const imagePath = await this.livePusherManager.takeSnapshot();
+
+        if (imagePath && this.aiRunning) {
+          console.log('[App Camera] 场景分析拍照成功，开始上传...');
+          this.uploadForAI(imagePath);
+        }
+      } catch (err) {
+        console.error('[App Camera] 分析场景失败:', err);
+        this.handleAIFail();
+      } finally {
+        this.isAnalyzing = false;
+      }
+    },
+
+    /**
+     * 专业模式一键分析
+     */
+    triggerProAnalysis() {
+      if (!this.livePusherManager) {
+        uni.showToast({ title: '相机未就绪', icon: 'none' });
+        return;
+      }
+
+      this.proAnalyzing = true;
+
+      this.livePusherManager.takeSnapshot()
+        .then((imagePath) => {
+          if (imagePath) {
+            // 使用 ImageManager 处理图片并上传
+            processForAI(imagePath, { quality: 75 })
+              .then(({ base64 }) => {
+                return proAnalyzeApi(base64);
+              })
+              .then((res) => {
+                if (res.statusCode === 200) {
+                  this.aiMessage = res.data.analysis || '分析完成';
+                  uni.showToast({ title: '✅ 分析完成', icon: 'none' });
+                } else {
+                  throw new Error(res.errMsg || '分析失败');
+                }
+              })
+              .catch((err) => {
+                console.error('[App Camera] 专业分析失败:', err);
+                this.aiMessage = '分析失败，请重试';
+                uni.showToast({ title: '分析失败', icon: 'none' });
+              })
+              .finally(() => {
+                this.proAnalyzing = false;
+              });
+          } else {
+            this.proAnalyzing = false;
+            uni.showToast({ title: '拍照失败', icon: 'none' });
+          }
+        })
+        .catch(() => {
+          this.proAnalyzing = false;
+          uni.showToast({ title: '操作失败', icon: 'none' });
+        });
+    },
+
+    // ============================================================
+    // 生命周期管理
+    // ============================================================
+    onDestroy() {
+      this.destroyCamera();
+      this._hasInitialized = false;
+      this._lastPermissionStatus = false;
+    },
+
+    onUnload() {
+      this.onDestroy();
+    },
+
+    onHide() {
+      console.log('[App Camera] 页面隐藏，暂停相机');
+    }
+  }
+};
+</script>
+
+<style scoped>
+.container {
+  flex: 1;
+  background-color: #000000;
+}
+
+.camera-area {
+  flex: 1;
+  width: 750rpx;
+  position: relative;
+}
+
+.live-pusher-view {
+  flex: 1;
+  width: 750rpx;
+}
+
+.ai-bubble-container {
+  position: absolute;
+  bottom: 180rpx; left: 24rpx; right: 24rpx;
+  z-index: 20;
+}
+
+.ai-bubble {
+  background-color: rgba(0, 0, 0, 0.75);
+  padding: 20rpx 28rpx;
+  border-radius: 32rpx;
+}
+
+.perfect-bubble {
+  border: 2rpx solid rgba(255, 215, 0, 1);
+  box-shadow: 0 0 24rpx rgba(255, 215, 0, 0.6);
+}
+
+.ai-text { color: #ffffff; font-size: 26rpx; }
+.perfect-text { color: #FFD700; font-weight: bold; }
+
+.pro-trigger-btn {
+  position: absolute;
+  top: 24rpx; right: 24rpx;
+  z-index: 25;
+  background: linear-gradient(to right, #4F46E5, #6366F1);
+  border-radius: 40rpx;
+  padding: 18rpx 32rpx;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pro-trigger-icon { font-size: 48rpx; color: #ffffff; }
+.pro-trigger-text { font-size: 22rpx; color: #ffffff; margin-top: 6rpx; }
+
+.overlay-grid {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 10;
+}
+
+.nine-grid {
+  flex-direction: column;
+}
+
+.grid-line {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.grid-line.v1, .grid-line.v2 {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 1rpx;
+}
+
+.grid-line.v1 { left: 33.33%; }
+.grid-line.v2 { left: 66.66%; }
+
+.grid-line.h1, .grid-line.h2 {
+  position: absolute;
+  left: 0; right: 0;
+  height: 1rpx;
+}
+
+.grid-line.h1 { top: 33.33%; }
+.grid-line.h2 { top: 66.66%; }
+
+.permission-box {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.9);
+  justify-content: center; align-items: center;
+  z-index: 100;
+}
+
+.permission-content { align-items: center; padding: 60rpx; }
+.permission-icon { font-size: 120rpx; margin-bottom: 32rpx; }
+.permission-text { color: #ffffff; font-size: 32rpx; margin-bottom: 40rpx; }
+
+.permission-btn {
+  background: linear-gradient(to right, #FF8C42, #FFA94D);
+  padding: 24rpx 60rpx; border-radius: 48rpx;
+}
+.btn-text { color: #ffffff; font-size: 30rpx; font-weight: bold; }
+
+.footer { background-color: #FFFFFF; padding-bottom: 20rpx; }
+
+.mode-selector { padding: 16rpx 0 20rpx; background-color: #FFF8F0; }
+.mode-inner { flex-direction: row; padding: 0 24rpx; justify-content: center; }
+
+.mode-item {
+  font-size: 26rpx; padding: 12rpx 24rpx; margin: 0 8rpx;
+  border-radius: 32rpx; background-color: rgba(255, 165, 0, 0.1); color: #FF8C42;
+}
+
+.mode-item.active {
+  background: linear-gradient(to right, #FF8C42, #FFA94D);
+  color: #ffffff; font-weight: bold;
+}
+
+.pro-mode-item.active {
+  background: linear-gradient(to right, #6366F1, #4F46E5) !important;
+}
+
+.tools-scroll { background-color: #FFFFFF; padding: 16rpx 0; }
+.tools-inner { flex-direction: row; padding: 0 24rpx; justify-content: center; }
+
+.btn { align-items: center; margin: 0 12rpx; padding: 12rpx 16rpx; }
+.emoji { font-size: 36rpx; }
+.desc { font-size: 20rpx; color: #666666; margin-top: 4rpx; }
+
+.shutter-zone { padding: 32rpx 0 48rpx; align-items: center; background-color: #FFFFFF; }
+
+.shutter-outer {
+  width: 140rpx; height: 140rpx; border-radius: 70rpx;
+  border: 8rpx solid #FF8C42;
+  justify-content: center; align-items: center;
+}
+
+.shutter-inner {
+  width: 110rpx; height: 110rpx; border-radius: 55rpx;
+  background: linear-gradient(to right, #FF8C42, #FFA94D);
+}
+</style>

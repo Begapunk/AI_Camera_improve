@@ -15,12 +15,12 @@
     >
       <cover-view class="ar-overlay">
         <cover-view class="hud-panel" style="border-color: #FFD700;">
-          <cover-view class="hud-header" style="color: #FFD700;">👁️ AI 视觉雷达 (纯图像估算)</cover-view>
+          <cover-view class="hud-header" style="color: #FFD700;">{{ $t('ar.visualRadarTitle') }}</cover-view>
           <cover-view class="hud-line" style="background: rgba(255, 215, 0, 0.3);"></cover-view>
-          <cover-view class="hud-row"><cover-view class="hud-label">↔️ 左右倾角:</cover-view><cover-view class="hud-value">{{ displayRoll }}°</cover-view></cover-view>
-          <cover-view class="hud-row"><cover-view class="hud-label">↕️ 前后俯仰:</cover-view><cover-view class="hud-value">{{ displayPitch }}°</cover-view></cover-view>
+          <cover-view class="hud-row"><cover-view class="hud-label">{{ $t('ar.rollLabel') }}</cover-view><cover-view class="hud-value">{{ displayRoll }}°</cover-view></cover-view>
+          <cover-view class="hud-row"><cover-view class="hud-label">{{ $t('ar.pitchLabel') }}</cover-view><cover-view class="hud-value">{{ displayPitch }}°</cover-view></cover-view>
           <cover-view class="hud-row dist-row">
-            <cover-view class="hud-label">📏 目标距离:</cover-view>
+            <cover-view class="hud-label">{{ $t('ar.targetDistanceLabel') }}</cover-view>
             <cover-view class="hud-value highlight" style="color: #FFD700;">{{ distanceText }}</cover-view>
           </cover-view>
         </cover-view>
@@ -54,12 +54,12 @@
     >
       <cover-view class="ar-overlay">
         <cover-view class="hud-panel" style="border-color: #FFD700;">
-          <cover-view class="hud-header" style="color: #FFD700;">🛰️ 增强现实雷达 (物理+AI双轨)</cover-view>
+          <cover-view class="hud-header" style="color: #FFD700;">{{ $t('ar.arRadarTitle') }}</cover-view>
           <cover-view class="hud-line" style="background: rgba(255, 215, 0, 0.3);"></cover-view>
-          <cover-view class="hud-row"><cover-view class="hud-label">↔️ 左右倾角:</cover-view><cover-view class="hud-value">{{ displayRoll }}°</cover-view></cover-view>
-          <cover-view class="hud-row"><cover-view class="hud-label">↕️ 前后俯仰:</cover-view><cover-view class="hud-value">{{ displayPitch }}°</cover-view></cover-view>
+          <cover-view class="hud-row"><cover-view class="hud-label">{{ $t('ar.rollLabel') }}</cover-view><cover-view class="hud-value">{{ displayRoll }}°</cover-view></cover-view>
+          <cover-view class="hud-row"><cover-view class="hud-label">{{ $t('ar.pitchLabel') }}</cover-view><cover-view class="hud-value">{{ displayPitch }}°</cover-view></cover-view>
           <cover-view class="hud-row dist-row">
-            <cover-view class="hud-label">📏 物理距离:</cover-view>
+            <cover-view class="hud-label">{{ $t('ar.physicalDistanceLabel') }}</cover-view>
             <cover-view class="hud-value highlight" style="color: #FFD700;">{{ distanceText }}</cover-view>
           </cover-view>
         </cover-view>
@@ -89,13 +89,13 @@
     </canvas>
 
     <view v-if="!isAuth && radarMode === 'visual'" class="permission-box">
-      <view class="p-icon">📷</view><text class="p-text">请授权开启相机权限</text>
-      <button class="p-btn" @tap="initCamera">去授权</button>
+      <view class="p-icon">📷</view><text class="p-text">{{ $t('ar.needCameraPermission') }}</text>
+      <button class="p-btn" @tap="initCamera">{{ $t('ar.goAuthorize') }}</button>
     </view>
-    
+
     <view v-if="!isSupportAR && radarMode === 'ar'" class="permission-box">
-      <view class="p-icon">🚫</view><text class="p-text">当前设备不支持 AR 引擎</text>
-      <button class="p-btn" @tap="toggleRadarMode">切回视觉模式</button>
+      <view class="p-icon">🚫</view><text class="p-text">{{ $t('ar.arNotSupported') }}</text>
+      <button class="p-btn" @tap="toggleRadarMode">{{ $t('ar.switchToVisualMode') }}</button>
     </view>
 
     <!-- ========================================== -->
@@ -103,29 +103,29 @@
     <!-- ========================================== -->
     <view class="footer">
       <view class="mode-selector">
-        <text class="mode-item" :class="{active: smartMode === 'person'}" @tap="setSmartMode('person')">👤 拍人</text>
-        <text class="mode-item" :class="{active: smartMode === 'object'}" @tap="setSmartMode('object')">🍎 拍物(手)</text>
-        <text class="mode-item" :class="{active: smartMode === 'scenery'}" @tap="setSmartMode('scenery')">🏔️ 拍景</text>
-        <text class="mode-item" :class="{active: smartMode === ''}" @tap="setSmartMode('')">🚫 自由</text>
+        <text class="mode-item" :class="{active: smartMode === 'person'}" @tap="setSmartMode('person')">{{ $t('ar.modePerson') }}</text>
+        <text class="mode-item" :class="{active: smartMode === 'object'}" @tap="setSmartMode('object')">{{ $t('ar.modeObject') }}</text>
+        <text class="mode-item" :class="{active: smartMode === 'scenery'}" @tap="setSmartMode('scenery')">{{ $t('ar.modeScenery') }}</text>
+        <text class="mode-item" :class="{active: smartMode === ''}" @tap="setSmartMode('')">{{ $t('ar.modeFree') }}</text>
       </view>
 
       <scroll-view class="tools-scroll" scroll-x="true">
         <view class="tools-inner">
           <view class="btn" @tap="toggleRadarMode">
             <text class="emoji">{{ radarMode === 'visual' ? '👁️' : '🛰️' }}</text>
-            <text class="desc">{{ radarMode === 'visual' ? '启动AR引擎' : '切至视觉雷达' }}</text>
+            <text class="desc">{{ radarMode === 'visual' ? $t('ar.startArEngine') : $t('ar.switchToVisualRadar') }}</text>
           </view>
           <view class="btn" @tap="triggerManualScan">
             <text class="emoji">📡</text>
-            <text class="desc">AI 扫描分析</text>
+            <text class="desc">{{ $t('ar.aiScanAnalyze') }}</text>
           </view>
           <view class="btn" @tap="toggleAI">
             <text class="emoji">{{ aiRunning ? '🟢' : '⚪' }}</text>
-            <text class="desc">AI 连续监测</text>
+            <text class="desc">{{ $t('ar.aiContinuousMonitor') }}</text>
           </view>
           <view class="btn" @tap="goBack">
             <text class="emoji">🔙</text>
-            <text class="desc">返回</text>
+            <text class="desc">{{ $t('common.back') }}</text>
           </view>
         </view>
       </scroll-view>
@@ -141,6 +141,7 @@
 
 <script>
 import { smartAnalyzeApi } from '@/utils/request.js';
+import { requestPermission } from '@/utils/permission.js';
 
 export default {
   data() {
@@ -175,21 +176,35 @@ export default {
     
     distanceText() {
       if (this.radarMode === 'ar') {
-        return this.hasHit ? this.realDistance.toFixed(2) + "m (AR 激光锁定)" : "寻找平面中...";
-      } 
+        return this.hasHit ? this.$t('ar.arLockedDistance', { value: this.realDistance.toFixed(2) }) : this.$t('ar.searchingPlane');
+      }
       if (this.aiDistance > 0) {
-        return `${this.aiDistance.toFixed(2)}m (${this.aiSubjectRef})`;
+        return this.$t('ar.aiDistanceWithRef', { value: this.aiDistance.toFixed(2), ref: this.aiSubjectRef });
       }
       const p = this.pitchAngle;
-      if (p < -2) return "仰角 (高处)";
-      if (p >= -2 && p <= 2) return "> 10m (平视)";
+      if (p < -2) return this.$t('ar.elevationAngle');
+      if (p >= -2 && p <= 2) return this.$t('ar.moreThan10mLevel');
       const theta = p * (Math.PI / 180);
       let dist = 1.4 / Math.tan(theta);
       if (dist > 15) return "> 15m";
-      return dist.toFixed(2) + "m (角度估算)";
+      return this.$t('ar.angleEstimateDistance', { value: dist.toFixed(2) });
     }
   },
   onLoad() {
+    // #ifdef APP-PLUS
+    // 本页依赖 <camera> 页内取景 + wx.createVKSession(微信VisionKit)，均为小程序专属能力；
+    // App-vue 端挂载 <camera> 会让渲染管线崩溃(页面僵死)，这里直接拦截并退回。
+    // App 端的 AR 测距将由 nativeplugins/ar-lidar-ranging UTS 插件承接（真机联调后接入）。
+    uni.showModal({
+      title: this.$t('ar.title'),
+      content: this.$t('camera.mpOnlyFeature'),
+      showCancel: false,
+      success: () => uni.navigateBack()
+    });
+    return;
+    // #endif
+
+    // #ifndef APP-PLUS
     this._vkSession = null;
     this._gl = null;
     this._glProgram = null;
@@ -201,6 +216,7 @@ export default {
     this._snapshotCallback = null;
 
     this.initCamera();
+    // #endif
   },
   onShow() {
     if (this.radarMode === 'visual') this.startSensors();
@@ -222,26 +238,33 @@ export default {
       this.isPerfect = false;
 
       if (this.radarMode === 'visual') {
+        // #ifdef MP-WEIXIN
         if (!wx.isVKSupport || !wx.isVKSupport('v2')) {
-          uni.showToast({ title: '设备不支持 AR 引擎', icon: 'none' });
+          uni.showToast({ title: this.$t('ar.deviceArNotSupported'), icon: 'none' });
           return;
         }
+        // #endif
+
+        // #ifndef MP-WEIXIN
+        uni.showToast({ title: this.$t('ar.deviceArNotSupported'), icon: 'none' });
+        return;
+        // #endif
         this.stopSensors();
         if (this.aiTimer) clearInterval(this.aiTimer);
-        
+
         // 标记切换，使得原生 Camera 卸载，释放硬件！
         this.radarMode = 'ar';
         // 等待下一帧 DOM 刷新完毕后再去拿摄像头
         this.$nextTick(() => { this.checkAndInitAR(); });
-        uni.showToast({ title: '启动 AR 引擎中...', icon: 'none' });
+        uni.showToast({ title: this.$t('ar.startingArEngine'), icon: 'none' });
       } else {
         this.stopAR();
         this.radarMode = 'visual';
-        this.$nextTick(() => { 
+        this.$nextTick(() => {
           this.initCamera();
           this.startSensors();
         });
-        uni.showToast({ title: '已切换至视觉模式', icon: 'none' });
+        uni.showToast({ title: this.$t('ar.switchedToVisualMode'), icon: 'none' });
       }
     },
 
@@ -252,11 +275,11 @@ export default {
     },
 
     initCamera() {
-      uni.authorize({
-        scope: 'scope.camera',
-        success: () => { this.isAuth = true; },
-        fail: () => { uni.showToast({ title: '需要相机权限', icon: 'none' }); }
-      });
+      // uni.authorize 是微信小程序专属 API，App 端(APP-PLUS)没有这个函数，直接调用会同步抛
+      // TypeError，摄像头权限永远申请不到。统一走 utils/permission.js 的跨端封装。
+      requestPermission('camera')
+        .then(() => { this.isAuth = true; })
+        .catch(() => { uni.showToast({ title: this.$t('ar.cameraPermissionRequired'), icon: 'none' }); });
     },
 
     startSensors() {
@@ -294,7 +317,7 @@ export default {
           .select('#photo-canvas').fields({ node: true })
           .exec((res) => {
             if (!res || !res[0] || !res[0].node) {
-              this._handleARInitFailure('AR 画布初始化失败，已切回视觉模式');
+              this._handleARInitFailure(this.$t('ar.arCanvasInitFailed'));
               return;
             }
             this._canvasNode = res[0].node;
@@ -308,7 +331,7 @@ export default {
             // 获取底层 GPU 上下文（部分设备/模拟器不支持 WebGL，会返回 null）
             this._gl = this._canvasNode.getContext('webgl', { alpha: false });
             if (!this._gl) {
-              this._handleARInitFailure('设备不支持 WebGL，已切回视觉模式');
+              this._handleARInitFailure(this.$t('ar.webglNotSupported'));
               return;
             }
             this.initVKSession();
@@ -318,11 +341,13 @@ export default {
 
     initVKSession() {
       if (!this._canvasNode || !this._gl) {
-        this._handleARInitFailure('AR 引擎初始化失败，已切回视觉模式');
+        this._handleARInitFailure(this.$t('ar.arEngineInitFailed'));
         return;
       }
       this.initWebGLShader(this._gl);
 
+      this._vkSession = null;
+      // #ifdef MP-WEIXIN
       this._vkSession = wx.createVKSession({
         track: { plane: { mode: 3 } },
         version: 'v2',
@@ -331,11 +356,12 @@ export default {
 
       this._vkSession.start((err) => {
         if (err) {
-          this._handleARInitFailure('AR 引擎启动失败，已切回视觉模式');
+          this._handleARInitFailure(this.$t('ar.arEngineStartFailed'));
           return;
         }
         this.runARLoop();
       });
+      // #endif
     },
 
     // ── AR 初始化失败统一兜底：清理 AR 资源 + 强制切回视觉模式，避免黑屏卡死 ──
@@ -525,12 +551,13 @@ export default {
       const imageData = ctx2d.createImageData(width, height);
       imageData.data.set(pixels);
       ctx2d.putImageData(imageData, 0, 0);
-      
+
+      // #ifdef MP-WEIXIN
       wx.canvasToTempFilePath({
         canvas: this._photoCanvasNode,
         destWidth: width,
         destHeight: height,
-        success: (res) => { 
+        success: (res) => {
           if (this._snapshotCallback) {
             this._snapshotCallback(res.tempFilePath);
             this._snapshotCallback = null;
@@ -538,6 +565,7 @@ export default {
         },
         fail: (err) => { console.error("生成图片失败", err); }
       });
+      // #endif
     },
 
     takePhoto() {
@@ -547,7 +575,7 @@ export default {
         uni.createCameraContext().takePhoto({
           quality: 'high',
           success: (res) => this.saveToAlbum(res.tempImagePath || res.tempFilePath),
-          fail: () => uni.showToast({ title: '拍照失败', icon: 'none' })
+          fail: () => uni.showToast({ title: this.$t('ar.takePhotoFailed'), icon: 'none' })
         });
       } else {
         this._needSnapshot = true;
@@ -557,19 +585,19 @@ export default {
     saveToAlbum(path) {
       uni.saveImageToPhotosAlbum({
         filePath: path,
-        success: () => uni.showToast({ title: '照片已保存', icon: 'success' })
+        success: () => uni.showToast({ title: this.$t('ar.photoSaved'), icon: 'success' })
       });
     },
 
     triggerManualScan() {
-      this.aiMessage = "雷达扫描分析中...";
+      this.aiMessage = this.$t('ar.radarScanning');
       this.runAIAnalysis();
     },
 
     toggleAI() {
       this.aiRunning = !this.aiRunning;
       if (this.aiRunning) {
-        this.aiMessage = 'AI 连续扫描开启...';
+        this.aiMessage = this.$t('ar.aiContinuousScanStarted');
         this.runAIAnalysis();
         if (this.radarMode === 'visual') this.aiTimer = setInterval(this.runAIAnalysis, 5000);
       } else {
@@ -599,10 +627,10 @@ export default {
                     realWidth = widthMap[objectName] || widthMap[this.smartMode] || 0.2;
                   }
                   if (result.data.subject_name && result.data.subject_real_width) {
-                    this.aiSubjectRef = `参考: ${result.data.subject_name}`;
+                    this.aiSubjectRef = this.$t('ar.referenceWithName', { name: result.data.subject_name });
                   } else {
-                    const labelMap = {'person': '人体40cm', 'object': '物体15cm', 'scenery': '建筑5m'};
-                    this.aiSubjectRef = `参考: ${labelMap[this.smartMode] || '识别物'}`;
+                    const labelMap = {'person': this.$t('ar.refPerson'), 'object': this.$t('ar.refObject'), 'scenery': this.$t('ar.refScenery')};
+                    this.aiSubjectRef = this.$t('ar.referenceWithName', { name: labelMap[this.smartMode] || this.$t('ar.refUnknown') });
                   }
                   
                   if (ratio && ratio > 0) {
@@ -622,7 +650,7 @@ export default {
               }
           })
           .catch(() => {
-            this.aiMessage = '网络异常';
+            this.aiMessage = this.$t('ar.aiNetworkError');
           });
       };
 
@@ -637,9 +665,9 @@ export default {
 
     setSmartMode(mode) {
       this.smartMode = mode;
-      uni.showToast({ title: mode ? `目标：${mode}` : '自由拍摄', icon: 'none' });
+      uni.showToast({ title: mode ? this.$t('ar.targetModeToast', { mode }) : this.$t('ar.freeShootToast'), icon: 'none' });
     },
-    onCameraError() { uni.showToast({ title: '相机调用异常', icon: 'none' }); }
+    onCameraError() { uni.showToast({ title: this.$t('ar.cameraError'), icon: 'none' }); }
   }
 };
 </script>

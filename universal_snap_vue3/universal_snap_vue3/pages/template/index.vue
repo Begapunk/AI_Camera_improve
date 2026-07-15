@@ -5,7 +5,7 @@
       <view class="back-btn" @click="goBack">
         <text class="back-icon">←</text>
       </view>
-      <text class="nav-title">模板评分</text>
+      <text class="nav-title">{{ $t('template.navTitle') }}</text>
       <view class="right-placeholder"></view>
     </view>
 
@@ -13,18 +13,18 @@
     <view class="image-section" v-if="imgSrc">
       <view class="image-card">
         <image :src="imgSrc" mode="aspectFill" class="preview-img" />
-        <view class="image-badge">待评分</view>
+        <view class="image-badge">{{ $t('template.pendingScore') }}</view>
       </view>
     </view>
     <view v-else class="placeholder-section">
       <view class="camera-icon">📷</view>
-      <text class="placeholder-text">点击下方按钮选择照片</text>
-      <text class="placeholder-hint">支持拍摄或相册选取</text>
+      <text class="placeholder-text">{{ $t('template.placeholderText') }}</text>
+      <text class="placeholder-hint">{{ $t('template.placeholderHint') }}</text>
     </view>
 
     <!-- 评分结果卡片 -->
     <view v-if="score" class="score-card">
-      <text class="score-label">综合得分</text>
+      <text class="score-label">{{ $t('template.scoreLabel') }}</text>
       <view class="score-value-wrap">
         <text class="score-value">{{ formattedScore }}</text>
         <text class="score-total">/ 1</text>
@@ -35,7 +35,7 @@
     <view v-if="advice" class="advice-card">
       <view class="advice-header">
         <text class="advice-icon">✨</text>
-        <text class="advice-title">AI 评分建议</text>
+        <text class="advice-title">{{ $t('template.adviceTitle') }}</text>
       </view>
       <text class="advice-text">{{ advice }}</text>
     </view>
@@ -44,13 +44,13 @@
     <view class="button-group">
       <button class="btn-outline" @tap="chooseImage">
         <text class="btn-icon">📷</text>
-        选择照片
+        {{ $t('template.chooseImage') }}
       </button>
       <button v-if="imgSrc" class="btn-primary" @tap="submitTemplate(false)">
-        🧠 获取AI评分
+        🧠 {{ $t('template.getAiScore') }}
       </button>
       <button v-if="imgSrc && score" class="btn-secondary" @tap="submitTemplate(true)">
-        💾 保存为模板
+        💾 {{ $t('template.saveAsTemplate') }}
       </button>
     </view>
 
@@ -91,22 +91,22 @@ function chooseImage() {
 
 async function submitTemplate(saveAsTemplate) {
   if (!imgSrc.value) return
-  uni.showLoading({ title: '分析中...', mask: true })
+  uni.showLoading({ title: uni.$t('template.analyzing'), mask: true })
   try {
     const res = await analyzeTemplateApi(imgSrc.value, saveAsTemplate)
     uni.hideLoading()
     if (res.error) {
-      uni.showToast({ title: '分析失败', icon: 'none' })
+      uni.showToast({ title: uni.$t('template.analyzeFailed'), icon: 'none' })
       return
     }
     score.value  = res.score
     advice.value = res.advice || res.suggestion
     if (saveAsTemplate) {
-      uni.showToast({ title: '已保存为模板', icon: 'success' })
+      uni.showToast({ title: uni.$t('template.savedAsTemplate'), icon: 'success' })
     }
   } catch (err) {
     uni.hideLoading()
-    uni.showToast({ title: typeof err === 'string' ? err : '上传失败', icon: 'none' })
+    uni.showToast({ title: typeof err === 'string' ? err : uni.$t('template.uploadFailed'), icon: 'none' })
   }
 }
 </script>

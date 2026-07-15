@@ -4,7 +4,7 @@
       <view class="back-btn" @click="goBack">
         <text class="back-icon">←</text>
       </view>
-      <text class="nav-title">{{ type === 'environment' ? '环境记录' : '分析记录' }}</text>
+      <text class="nav-title">{{ type === 'environment' ? $t('profileHistory.envTitle') : $t('profileHistory.analysisTitle') }}</text>
       <view class="right-placeholder"></view>
     </view>
 
@@ -16,7 +16,7 @@
             <text class="advice">{{ item.advice }}</text>
             <view class="record-footer">
               <text class="time">{{ formatTime(item.create_time) }}</text>
-              <text v-if="item.audioUrl" class="play-btn" @click="playAudio(item.audioUrl)">🔊 语音</text>
+              <text v-if="item.audioUrl" class="play-btn" @click="playAudio(item.audioUrl)">{{ $t('profileHistory.playAudio') }}</text>
             </view>
           </view>
         </view>
@@ -24,8 +24,8 @@
 
       <view v-else class="empty-state">
         <text class="empty-icon">{{ type === 'environment' ? '🌤️' : '📊' }}</text>
-        <text class="empty-text">暂无记录</text>
-        <text class="empty-hint">{{ type === 'environment' ? '去环境分析页面拍一张试试吧' : '去自拍分析页面拍一张试试吧' }}</text>
+        <text class="empty-text">{{ $t('profileHistory.noRecords') }}</text>
+        <text class="empty-hint">{{ type === 'environment' ? $t('profileHistory.emptyHintEnv') : $t('profileHistory.emptyHintSelfie') }}</text>
       </view>
     </scroll-view>
   </view>
@@ -38,8 +38,9 @@ export default {
   data() {
     return {
       type: 'selfie',
-      records: [],
-      innerAudioContext: null
+      records: []
+      // innerAudioContext 不放 data()：原生桥接对象进 Vue Proxy 后，App 端属性赋值会抛
+      // "Proxy set trap returned falsy"。实例存 this._audioCtx（非响应式）。
     }
   },
   onLoad(options) {
@@ -47,9 +48,9 @@ export default {
     this.loadHistory()
   },
   onUnload() {
-    if (this.innerAudioContext) {
-      this.innerAudioContext.stop()
-      this.innerAudioContext.destroy()
+    if (this._audioCtx) {
+      this._audioCtx.stop()
+      this._audioCtx.destroy()
     }
   },
   methods: {
@@ -57,45 +58,45 @@ export default {
       uni.navigateBack()
     },
     loadHistory() {
-      uni.showLoading({ title: '加载中...', mask: true })
+      uni.showLoading({ title: this.$t('profileHistory.loading'), mask: true })
       fetchHistoryApi(this.type)
         .then((res) => {
           uni.hideLoading()
           if (res.statusCode === 200 && res.data.records) {
             this.records = res.data.records
           } else {
-            uni.showToast({ title: '加载失败', icon: 'none' })
+            uni.showToast({ title: this.$t('common.loadFailed'), icon: 'none' })
           }
         })
         .catch(() => {
           uni.hideLoading()
-          uni.showToast({ title: '请求出错', icon: 'none' })
+          uni.showToast({ title: this.$t('profileHistory.requestFailed'), icon: 'none' })
         })
     },
     previewImage(item) {
       uni.previewImage({ current: item.imageUrl, urls: [item.imageUrl] })
     },
     playAudio(url) {
-      if (this.innerAudioContext) {
-        this.innerAudioContext.stop()
-        this.innerAudioContext.destroy()
+      if (this._audioCtx) {
+        this._audioCtx.stop()
+        this._audioCtx.destroy()
       }
-      this.innerAudioContext = uni.createInnerAudioContext()
-      this.innerAudioContext.obeyMuteSwitch = false
-      this.innerAudioContext.onError((err) => {
-        uni.showToast({ title: '语音播放失败', icon: 'none' })
+      this._audioCtx = uni.createInnerAudioContext()
+      try { this._audioCtx.obeyMuteSwitch = false } catch (e) {} // App 端不支持时忽略
+      this._audioCtx.onError((err) => {
+        uni.showToast({ title: this.$t('profileHistory.audioPlayFailed'), icon: 'none' })
       })
       // 网络 http mp3 先下载到本地再播，规避微信 innerAudioContext 播放网络音频失败
       uni.downloadFile({
         url,
         success: (res) => {
           if (res.statusCode === 200 && res.tempFilePath) {
-            this.innerAudioContext.src = res.tempFilePath
-            this.innerAudioContext.play()
+            this._audioCtx.src = res.tempFilePath
+            this._audioCtx.play()
           }
         },
         fail: () => {
-          uni.showToast({ title: '语音下载失败', icon: 'none' })
+          uni.showToast({ title: this.$t('profileHistory.audioDownloadFailed'), icon: 'none' })
         }
       })
     },

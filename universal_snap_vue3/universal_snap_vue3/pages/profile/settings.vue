@@ -2,60 +2,72 @@
   <view class="container">
     <view class="nav-bar">
       <view class="back-btn" @click="goBack">
-        <text class="back-icon">←</text>
+        <text class="back-icon">{{ backArrowIcon }}</text>
       </view>
-      <text class="nav-title">设置</text>
+      <text class="nav-title">{{ $t('settings.title') }}</text>
       <view class="right-placeholder"></view>
     </view>
 
     <scroll-view class="content" scroll-y enhanced :show-scrollbar="false">
       <view class="section">
-        <view class="section-title">头像与昵称</view>
+        <view class="section-title">{{ $t('settings.avatarNickname') }}</view>
         <view class="card">
           <view class="avatar-row" @tap="chooseAvatar">
             <image v-if="avatar" :src="avatar" class="avatar-preview" mode="aspectFill" />
             <view v-else class="avatar-preview avatar-placeholder">👤</view>
-            <text class="avatar-hint">点击更换头像</text>
+            <text class="avatar-hint">{{ $t('settings.changeAvatar') }}</text>
           </view>
           <view class="field">
-            <text class="field-label">昵称</text>
-            <input class="field-input" v-model="nickname" placeholder="请输入昵称" placeholder-class="field-placeholder" />
+            <text class="field-label">{{ $t('settings.nickname') }}</text>
+            <input class="field-input" v-model="nickname" :placeholder="$t('settings.nicknamePlaceholder')" placeholder-class="field-placeholder" />
           </view>
-          <button class="save-btn" @tap="saveProfile" :loading="savingProfile">保存资料</button>
+          <button class="save-btn" @tap="saveProfile" :loading="savingProfile">{{ $t('settings.saveProfile') }}</button>
         </view>
       </view>
 
       <view class="section">
-        <view class="section-title">修改密码</view>
+        <view class="section-title">{{ $t('settings.changePassword') }}</view>
         <view class="card">
           <view class="field">
-            <text class="field-label">当前密码</text>
-            <input class="field-input" v-model="oldPassword" password placeholder="请输入当前密码" placeholder-class="field-placeholder" />
+            <text class="field-label">{{ $t('settings.oldPassword') }}</text>
+            <input class="field-input" v-model="oldPassword" password :placeholder="$t('settings.oldPasswordPlaceholder')" placeholder-class="field-placeholder" />
           </view>
           <view class="field">
-            <text class="field-label">新密码</text>
-            <input class="field-input" v-model="newPassword" password placeholder="请输入新密码" placeholder-class="field-placeholder" />
+            <text class="field-label">{{ $t('settings.newPassword') }}</text>
+            <input class="field-input" v-model="newPassword" password :placeholder="$t('settings.newPasswordPlaceholder')" placeholder-class="field-placeholder" />
           </view>
           <view class="field">
-            <text class="field-label">确认新密码</text>
-            <input class="field-input" v-model="confirmPassword" password placeholder="请再次输入新密码" placeholder-class="field-placeholder" />
+            <text class="field-label">{{ $t('settings.confirmPassword') }}</text>
+            <input class="field-input" v-model="confirmPassword" password :placeholder="$t('settings.confirmPasswordPlaceholder')" placeholder-class="field-placeholder" />
           </view>
-          <button class="save-btn" @tap="savePassword" :loading="savingPassword">修改密码</button>
+          <button class="save-btn" @tap="savePassword" :loading="savingPassword">{{ $t('settings.changePassword') }}</button>
         </view>
       </view>
 
       <view class="section">
-        <view class="section-title">人脸登录</view>
+        <view class="section-title">{{ $t('settings.faceLogin') }}</view>
         <view class="card">
           <view class="face-status-row">
-            <text class="face-status-label">当前状态</text>
+            <text class="face-status-label">{{ $t('settings.currentStatus') }}</text>
             <text class="face-status-value" :class="faceRegistered ? 'bound' : ''">
-              {{ faceRegistered ? '已绑定' : '未绑定' }}
+              {{ faceRegistered ? $t('settings.bound') : $t('settings.unbound') }}
             </text>
           </view>
-          <button class="save-btn" @tap="showFaceCamera = true">
-            {{ faceRegistered ? '重新录入人脸' : '录入人脸' }}
+          <button class="save-btn" @tap="openFaceBind">
+            {{ faceRegistered ? $t('settings.rebindFace') : $t('settings.bindFace') }}
           </button>
+        </view>
+      </view>
+
+      <view class="section">
+        <view class="section-title">{{ $t('settings.language') }}</view>
+        <view class="card">
+          <picker mode="selector" :range="localeLabels" :value="currentLocaleIndex" @change="onLocaleChange">
+            <view class="field language-field">
+              <text class="field-label">{{ $t('settings.languagePicker') }}</text>
+              <text class="language-value">{{ currentLocaleLabel }} ›</text>
+            </view>
+          </picker>
         </view>
       </view>
     </scroll-view>
@@ -63,9 +75,9 @@
     <view v-if="showFaceCamera" class="face-mask">
       <view class="face-card">
         <camera device-position="front" flash="off" class="face-camera"></camera>
-        <text class="face-hint">请正对面部进行采集</text>
-        <button class="face-btn" @tap="captureAndBindFace">确认录入</button>
-        <button class="face-btn cancel" @tap="showFaceCamera = false">取消</button>
+        <text class="face-hint">{{ $t('settings.faceHint') }}</text>
+        <button class="face-btn" @tap="captureAndBindFace">{{ $t('settings.confirmBind') }}</button>
+        <button class="face-btn cancel" @tap="showFaceCamera = false">{{ $t('common.cancel') }}</button>
       </view>
     </view>
   </view>
@@ -75,6 +87,8 @@
 import {
   getUserInfoApi, updateUserProfileApi, changePasswordApi, updateFaceApi
 } from '@/utils/request.js'
+import { SUPPORTED_LOCALES, getCurrentLocale, setLocale, backArrow } from '@/utils/i18n.js'
+import { readFileAsBase64 } from '@/utils/fileBase64.js'
 
 export default {
   data() {
@@ -88,13 +102,41 @@ export default {
       faceRegistered: false,
       showFaceCamera: false,
       savingProfile: false,
-      savingPassword: false
+      savingPassword: false,
+      currentLocale: getCurrentLocale()
+    }
+  },
+  computed: {
+    backArrowIcon() {
+      return backArrow()
+    },
+    localeLabels() {
+      return SUPPORTED_LOCALES.map((l) => l.label)
+    },
+    currentLocaleIndex() {
+      const idx = SUPPORTED_LOCALES.findIndex((l) => l.value === this.currentLocale)
+      return idx === -1 ? 0 : idx
+    },
+    currentLocaleLabel() {
+      return SUPPORTED_LOCALES[this.currentLocaleIndex].label
     }
   },
   onShow() {
     this.loadUserInfo()
   },
   methods: {
+    onLocaleChange(e) {
+      const picked = SUPPORTED_LOCALES[e.detail.value]
+      const previousLocale = this.currentLocale
+      if (!picked || picked.value === previousLocale) return
+      setLocale(picked.value)
+      this.currentLocale = picked.value
+      // 阿拉伯语和其他语言之间切换会改变文字书写方向，重启当前页面让 RTL/LTR 判断重新生效
+      if (picked.value === 'ar' || previousLocale === 'ar') {
+        uni.setStorageSync('_isRTL', picked.value === 'ar')
+        uni.reLaunch({ url: '/pages/profile/settings' })
+      }
+    },
     loadUserInfo() {
       getUserInfoApi().then((res) => {
         if (res.statusCode === 200 && res.data.user) {
@@ -104,7 +146,7 @@ export default {
           this.faceRegistered = !!user.face_registered
         }
       }).catch(() => {
-        uni.showToast({ title: '获取用户信息失败', icon: 'none' })
+        uni.showToast({ title: this.$t('settings.fetchUserInfoFailed'), icon: 'none' })
       })
     },
     goBack() {
@@ -122,7 +164,7 @@ export default {
     },
     saveProfile() {
       if (!this.nickname.trim()) {
-        uni.showToast({ title: '昵称不能为空', icon: 'none' })
+        uni.showToast({ title: this.$t('settings.nicknameRequired'), icon: 'none' })
         return
       }
       this.savingProfile = true
@@ -130,25 +172,26 @@ export default {
         .then((res) => {
           this.savingProfile = false
           if (res.statusCode === 200) {
-            uni.showToast({ title: '保存成功', icon: 'success' })
+            uni.showToast({ title: this.$t('common.saveSuccess'), icon: 'success' })
             this.newAvatarPath = ''
             this.loadUserInfo()
           } else {
-            uni.showToast({ title: res.data.error || '保存失败', icon: 'none' })
+            // res.data.error 来自后端，目前只有中文文案；前端 i18n 暂不覆盖后端返回的业务错误
+            uni.showToast({ title: res.data.error || this.$t('common.saveFailed'), icon: 'none' })
           }
         })
         .catch(() => {
           this.savingProfile = false
-          uni.showToast({ title: '网络请求失败', icon: 'none' })
+          uni.showToast({ title: this.$t('common.networkError'), icon: 'none' })
         })
     },
     savePassword() {
       if (!this.oldPassword || !this.newPassword || !this.confirmPassword) {
-        uni.showToast({ title: '请完整填写密码信息', icon: 'none' })
+        uni.showToast({ title: this.$t('settings.passwordFieldsRequired'), icon: 'none' })
         return
       }
       if (this.newPassword !== this.confirmPassword) {
-        uni.showToast({ title: '两次输入的新密码不一致', icon: 'none' })
+        uni.showToast({ title: this.$t('settings.passwordMismatch'), icon: 'none' })
         return
       }
       this.savingPassword = true
@@ -156,51 +199,71 @@ export default {
         .then((res) => {
           this.savingPassword = false
           if (res.statusCode === 200) {
-            uni.showToast({ title: '密码修改成功', icon: 'success' })
+            uni.showToast({ title: this.$t('settings.passwordChangeSuccess'), icon: 'success' })
             this.oldPassword = ''
             this.newPassword = ''
             this.confirmPassword = ''
           } else {
             const detail = res.data.details ? res.data.details.join('；') : ''
-            uni.showToast({ title: res.data.error + (detail ? '：' + detail : '') || '修改失败', icon: 'none' })
+            uni.showToast({ title: res.data.error + (detail ? '：' + detail : '') || this.$t('settings.passwordChangeFailed'), icon: 'none' })
           }
         })
         .catch(() => {
           this.savingPassword = false
-          uni.showToast({ title: '网络请求失败', icon: 'none' })
+          uni.showToast({ title: this.$t('common.networkError'), icon: 'none' })
+        })
+    },
+    // 人脸绑定入口：App 端直接调系统相机（<camera> 是小程序系组件，App-vue 支持不稳），
+    // 小程序端保持原来的页内摄像头浮层
+    openFaceBind() {
+      // #ifdef APP-PLUS
+      uni.chooseImage({
+        count: 1,
+        sourceType: ['camera'],
+        sizeType: ['compressed'],
+        success: (res) => this._bindFaceByPath(res.tempFilePaths[0]),
+        fail: () => {
+          // 用户取消拍照不算错误，静默返回
+        }
+      })
+      return
+      // #endif
+
+      // #ifndef APP-PLUS
+      this.showFaceCamera = true
+      // #endif
+    },
+    // 拿到照片路径后的统一绑定流程（两端共用）
+    _bindFaceByPath(filePath) {
+      uni.showLoading({ title: this.$t('settings.binding'), mask: true })
+      readFileAsBase64(filePath)
+        .then((base64Data) => updateFaceApi(base64Data))
+        .then((result) => {
+          uni.hideLoading()
+          if (result.statusCode === 200) {
+            this.faceRegistered = true
+            uni.showToast({ title: this.$t('settings.bindSuccess'), icon: 'success' })
+            this.showFaceCamera = false
+          } else {
+            uni.showModal({
+              title: this.$t('settings.bindFailed'),
+              content: result.data.error || this.$t('settings.pleaseRetry'),
+              showCancel: false
+            })
+          }
+        })
+        .catch(() => {
+          uni.hideLoading()
+          uni.showToast({ title: this.$t('common.networkError'), icon: 'none' })
         })
     },
     captureAndBindFace() {
       const ctx = uni.createCameraContext()
       ctx.takePhoto({
         quality: 'high',
-        success: (res) => {
-          uni.showLoading({ title: '正在绑定...', mask: true })
-          const filePath = res.tempImagePath || res.tempFilePath
-          const fs = uni.getFileSystemManager()
-          const base64Data = fs.readFileSync(filePath, 'base64')
-          updateFaceApi(base64Data)
-            .then((result) => {
-              uni.hideLoading()
-              if (result.statusCode === 200) {
-                this.faceRegistered = true
-                uni.showToast({ title: '绑定成功', icon: 'success' })
-                this.showFaceCamera = false
-              } else {
-                uni.showModal({
-                  title: '绑定失败',
-                  content: result.data.error || '请重试',
-                  showCancel: false
-                })
-              }
-            })
-            .catch(() => {
-              uni.hideLoading()
-              uni.showToast({ title: '网络错误', icon: 'none' })
-            })
-        },
+        success: (res) => this._bindFaceByPath(res.tempImagePath || res.tempFilePath),
         fail: () => {
-          uni.showToast({ title: '摄像头启动失败', icon: 'none' })
+          uni.showToast({ title: this.$t('settings.cameraStartFailed'), icon: 'none' })
         }
       })
     }
